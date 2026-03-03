@@ -1,0 +1,389 @@
+---
+title: GamePlayer
+description: Player entity class representing other players in the game
+---
+
+The `GamePlayer` class represents another player in the game. It contains their position, stats, loadout, and current state.
+
+## Import
+
+```javascript
+import { GamePlayer } from 'yolkbot';
+```
+
+## Usage
+
+You typically don't construct `GamePlayer` instances directly. They are created automatically and emitted through bot events.
+
+```javascript
+bot.on('playerJoin', (player) => {
+  console.log(`${player.name} joined the game`);
+  console.log('Position:', player.position);
+  console.log('Health:', player.hp);
+});
+
+bot.on('playerUpdate', (player) => {
+  console.log(`${player.name} moved to`, player.position);
+});
+```
+
+## Properties
+
+### Identity
+
+<ParamField path="id" type="number">
+  Unique player ID for the current game session
+</ParamField>
+
+<ParamField path="uniqueId" type="string">
+  Persistent unique identifier across all games
+</ParamField>
+
+<ParamField path="name" type="string">
+  Player's display name
+</ParamField>
+
+<ParamField path="safeName" type="string">
+  Sanitized version of player name
+</ParamField>
+
+```javascript
+bot.on('playerJoin', (player) => {
+  console.log(`Player #${player.id}: ${player.name}`);
+  console.log('Unique ID:', player.uniqueId);
+});
+```
+
+### Team & Status
+
+<ParamField path="team" type="number">
+  Team ID (1 = Blue, 2 = Red, or null for FFA)
+</ParamField>
+
+<ParamField path="playing" type="boolean">
+  Whether player is currently alive and playing
+</ParamField>
+
+```javascript
+import { Team } from 'yolkbot';
+
+bot.on('playerUpdate', (player) => {
+  if (player.team === Team.Red && player.playing) {
+    console.log(`${player.name} is alive on red team`);
+  }
+});
+```
+
+### Position & View
+
+<ParamField path="position" type="object">
+  Player's current position in 3D space
+  - `x` (number): X coordinate
+  - `y` (number): Y coordinate  
+  - `z` (number): Z coordinate
+</ParamField>
+
+<ParamField path="view" type="object">
+  Player's camera orientation
+  - `yaw` (number): Horizontal rotation
+  - `pitch` (number): Vertical rotation
+</ParamField>
+
+```javascript
+bot.on('playerUpdate', (player) => {
+  const { x, y, z } = player.position;
+  console.log(`${player.name} is at (${x}, ${y}, ${z})`);
+  console.log('Looking:', player.view.yaw, player.view.pitch);
+});
+```
+
+### Movement State
+
+<ParamField path="jumping" type="boolean">
+  Whether player is currently jumping
+</ParamField>
+
+<ParamField path="scoping" type="boolean">
+  Whether player is aiming down sights
+</ParamField>
+
+<ParamField path="climbing" type="boolean">
+  Whether player is climbing (always false currently)
+</ParamField>
+
+```javascript
+bot.on('playerUpdate', (player) => {
+  if (player.jumping) {
+    console.log(`${player.name} is jumping`);
+  }
+  if (player.scoping) {
+    console.log(`${player.name} is scoping`);
+  }
+});
+```
+
+### Health & Shields
+
+<ParamField path="hp" type="number">
+  Current health points (0-100)
+</ParamField>
+
+<ParamField path="hpShield" type="number">
+  Shield health from powerups (0-100)
+</ParamField>
+
+<ParamField path="spawnShield" type="boolean">
+  Whether player has spawn protection
+</ParamField>
+
+```javascript
+bot.on('playerUpdate', (player) => {
+  const totalHealth = player.hp + player.hpShield;
+  console.log(`${player.name} health: ${totalHealth}`);
+  
+  if (player.spawnShield) {
+    console.log('Has spawn protection!');
+  }
+});
+```
+
+### Weapons & Loadout
+
+<ParamField path="weapons" type="array">
+  Array of equipped weapons with ammo data
+  - Index 0: Primary weapon
+  - Index 1: Secondary weapon (Cluck 9mm)
+</ParamField>
+
+<ParamField path="activeGun" type="number">
+  Currently equipped weapon index (0 or 1)
+</ParamField>
+
+<ParamField path="selectedGun" type="number">
+  Primary weapon type (index into GunList)
+</ParamField>
+
+<ParamField path="grenades" type="number">
+  Number of grenades (default: 1)
+</ParamField>
+
+```javascript
+import { GunList } from 'yolkbot';
+
+bot.on('playerJoin', (player) => {
+  const primaryGun = GunList[player.selectedGun];
+  console.log(`${player.name} has ${primaryGun.weaponName}`);
+  
+  if (player.weapons[0]) {
+    const ammo = player.weapons[0].ammo;
+    console.log(`Ammo: ${ammo.mag}/${ammo.reserve}`);
+  }
+});
+```
+
+### Character Cosmetics
+
+<ParamField path="character" type="object">
+  Player's cosmetic loadout
+  - `eggColor` (string): Egg shell color
+  - `primaryGun` (string): Primary weapon item ID
+  - `secondaryGun` (string): Secondary weapon item ID
+  - `stamp` (string): Stamp item ID
+  - `hat` (string): Hat item ID
+  - `grenade` (string): Grenade item ID
+  - `melee` (string): Melee weapon item ID
+  - `stampPos` (object): Stamp position {x, y}
+</ParamField>
+
+```javascript
+bot.on('playerJoin', (player) => {
+  console.log('Cosmetics:');
+  console.log('- Egg color:', player.character.eggColor);
+  console.log('- Hat:', player.character.hat);
+  console.log('- Stamp:', player.character.stamp);
+});
+```
+
+### Stats
+
+<ParamField path="stats" type="object">
+  Player's game statistics
+  - `totalKills` (number): Total kills in account
+  - `totalDeaths` (number): Total deaths in account
+  - `bestStreak` (number): Best killstreak ever
+</ParamField>
+
+```javascript
+bot.on('playerJoin', (player) => {
+  const kd = (player.stats.totalKills / player.stats.totalDeaths).toFixed(2);
+  console.log(`${player.name} K/D: ${kd}`);
+  console.log(`Best streak: ${player.stats.bestStreak}`);
+});
+```
+
+### Killstreak
+
+<ParamField path="streak" type="number">
+  Current killstreak count
+</ParamField>
+
+<ParamField path="streakRewards" type="array">
+  Active killstreak reward flags (ShellStreak values)
+</ParamField>
+
+<ParamField path="scale" type="number">
+  Player size scale (0.5 if MiniEgg active, 1.0 otherwise)
+</ParamField>
+
+```javascript
+import { ShellStreak } from 'yolkbot';
+
+bot.on('playerUpdate', (player) => {
+  console.log(`${player.name} streak: ${player.streak}`);
+  
+  if (player.streakRewards.includes(ShellStreak.MiniEgg)) {
+    console.log('Has mini egg! (50% size)');
+  }
+  
+  if (player.streakRewards.includes(ShellStreak.OverHeal)) {
+    console.log('Has overheal!');
+  }
+});
+```
+
+### Social Media
+
+<ParamField path="socials" type="array">
+  Array of linked social media accounts
+  - `id` (number): Platform ID
+  - `type` (string): Platform name (facebook, instagram, etc.)
+  - `handle` (string): Username/handle
+</ParamField>
+
+<ParamField path="isVip" type="boolean">
+  Whether player has VIP subscription
+</ParamField>
+
+<ParamField path="showBadge" type="boolean">
+  Whether VIP badge is visible
+</ParamField>
+
+```javascript
+bot.on('playerJoin', (player) => {
+  if (player.isVip) {
+    console.log(`${player.name} is a VIP member`);
+  }
+  
+  if (player.socials.length > 0) {
+    console.log('Social media:');
+    player.socials.forEach(social => {
+      console.log(`- ${social.type}: ${social.handle}`);
+    });
+  }
+});
+```
+
+### KOTC Zone
+
+<ParamField path="inKotcZone" type="boolean">
+  Whether player is inside the King of the Coop zone
+</ParamField>
+
+```javascript
+bot.on('playerUpdate', (player) => {
+  if (player.inKotcZone && player.playing) {
+    console.log(`${player.name} is capturing the zone!`);
+  }
+});
+```
+
+### Other
+
+<ParamField path="randomSeed" type="number">
+  Random seed value (internal use)
+</ParamField>
+
+## Methods
+
+### updateKotcZone()
+
+Updates whether the player is inside the KOTC zone.
+
+```javascript
+updateKotcZone(activeZone: Array | null): void
+```
+
+<ParamField path="activeZone" type="array | null">
+  Array of zone coordinate objects, or null if no zone is active
+</ParamField>
+
+This method is called automatically when zone data updates. You typically don't need to call it manually.
+
+## Complete Example
+
+```javascript
+import { Bot, GameMode, PlayType, Team, ShellStreak } from 'yolkbot';
+
+const bot = new Bot();
+
+await bot.login(email, password);
+await bot.joinGame(GameMode.Team, PlayType.JoinPublic);
+
+// Track all players
+const players = new Map();
+
+bot.on('playerJoin', (player) => {
+  players.set(player.id, player);
+  
+  console.log(`[JOIN] ${player.name}`);
+  console.log(`  Team: ${player.team === Team.Blue ? 'Blue' : 'Red'}`);
+  console.log(`  Stats: ${player.stats.totalKills}K / ${player.stats.totalDeaths}D`);
+  console.log(`  VIP: ${player.isVip ? 'Yes' : 'No'}`);
+});
+
+bot.on('playerUpdate', (player) => {
+  players.set(player.id, player);
+  
+  // Alert on low health enemies
+  if (player.team !== bot.team && player.hp < 30) {
+    const dist = distance(bot.position, player.position);
+    console.log(`${player.name} is low HP (${player.hp}) at distance ${dist}`);
+  }
+  
+  // Track high streaks
+  if (player.streak >= 10) {
+    console.log(`${player.name} is on a ${player.streak} killstreak!`);
+    
+    if (player.streakRewards.includes(ShellStreak.MiniEgg)) {
+      console.log('  - Watch out, they are mini size!');
+    }
+  }
+});
+
+bot.on('playerLeave', (playerId) => {
+  const player = players.get(playerId);
+  if (player) {
+    console.log(`[LEAVE] ${player.name}`);
+    players.delete(playerId);
+  }
+});
+
+bot.on('kill', (killer, victim) => {
+  console.log(`${killer.name} killed ${victim.name}`);
+  console.log(`${killer.name} now has ${killer.streak} streak`);
+});
+
+function distance(pos1, pos2) {
+  const dx = pos1.x - pos2.x;
+  const dy = pos1.y - pos2.y;
+  const dz = pos1.z - pos2.z;
+  return Math.sqrt(dx*dx + dy*dy + dz*dz).toFixed(2);
+}
+```
+
+## Related
+
+- [Bot API](/api-reference/bot) - Bot class and event handling
+- [Event Handling](/concepts/event-handling) - Events that emit GamePlayer instances
+- [Constants](/api-reference/constants) - Team, ShellStreak, and other constants
+- [Enums](/api-reference/enums) - Error handling and intents

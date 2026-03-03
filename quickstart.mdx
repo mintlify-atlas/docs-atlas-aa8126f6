@@ -1,80 +1,290 @@
 ---
 title: "Quickstart"
-description: "Start building awesome documentation in minutes"
+description: "Create your first Shell Shockers bot in minutes"
 ---
 
-## Get started in three steps
+## Create your first bot
 
-Get your documentation site running locally and make your first customization.
+This guide walks you through creating a fully functional bot that joins a game, spawns, and responds to events.
 
-### Step 1: Set up your local environment
+<Steps>
+  <Step title="Install yolkbot">
+    If you haven't already, install yolkbot:
+
+    ```bash
+    npm install yolkbot
+    ```
+  </Step>
+
+  <Step title="Create a bot file">
+    Create a new file called `bot.js`:
+
+    ```javascript bot.js
+    import { Bot, Intents } from 'yolkbot';
+
+    const bot = new Bot({
+      intents: [Intents.PATHFINDING]
+    });
+    ```
+
+    The `Bot` class is the main entry point. You can configure it with various options:
+    - **intents**: Enable specific features like pathfinding, player health tracking, or challenges
+    - **proxy**: HTTP/SOCKS proxy for requests (Node.js only)
+    - **instance**: Game server domain (default: `shellshock.io`)
+    - **protocol**: WebSocket protocol (default: `wss`)
+  </Step>
+
+  <Step title="Log in to Shell Shockers">
+    Add authentication to your bot:
+
+    ```javascript bot.js
+    // Anonymous login (creates a guest account)
+    const loginResult = await bot.loginAnonymously();
+
+    if (!loginResult.ok) {
+      console.error('Login failed:', loginResult.error);
+      process.exit(1);
+    }
+
+    console.log('Logged in as:', bot.account.id);
+    ```
+
+    <Tip>
+      You can also use `bot.login(email, password)` for persistent accounts or `bot.loginWithRefreshToken(token)` to avoid re-authenticating.
+    </Tip>
+  </Step>
+
+  <Step title="Find and join a game">
+    Search for a public game and join it:
+
+    ```javascript bot.js
+    // Find a public FFA game in US East region
+    const game = await bot.findPublicGame('us-east', 'ffa');
+
+    if (!game.ok) {
+      console.error('Failed to find game:', game.error);
+      process.exit(1);
+    }
+
+    console.log('Found game:', game.id);
+
+    // Join the game with a bot name
+    const joinResult = await bot.join('MyFirstBot', game);
+
+    if (!joinResult.ok) {
+      console.error('Failed to join:', joinResult.error);
+      process.exit(1);
+    }
+
+    console.log('Joined game successfully!');
+    ```
+  </Step>
+
+  <Step title="Handle game events">
+    Add event listeners to respond to game events:
+
+    ```javascript bot.js
+    // When the bot successfully joins the game
+    bot.on('gameJoined', () => {
+      console.log('Game joined! Map:', bot.game.map.name);
+      console.log('Game mode:', bot.game.gameMode);
+      
+      // Spawn the bot
+      bot.emit('spawn');
+    });
+
+    // When the bot spawns
+    bot.on('spawned', () => {
+      console.log('Bot spawned at:', bot.me.position);
+    });
+
+    // When a player joins
+    bot.on('playerJoin', (player) => {
+      console.log('Player joined:', player.name);
+    });
+
+    // When the bot gets killed
+    bot.on('death', (killer) => {
+      console.log('Killed by:', killer?.name || 'unknown');
+      
+      // Respawn after 3 seconds
+      setTimeout(() => bot.emit('spawn'), 3000);
+    });
+
+    // Handle chat messages
+    bot.on('chat', (player, message) => {
+      console.log(`[${player.name}]: ${message}`);
+    });
+    ```
+  </Step>
+
+  <Step title="Start the update loop">
+    yolkbot requires a continuous update loop to process dispatches and sync state:
+
+    ```javascript bot.js
+    // Update loop (30 ticks per second)
+    setInterval(() => {
+      bot.update();
+    }, 1000 / 30);
+    ```
+
+    <Warning>
+      The update loop is **required** for the bot to function. Without it, movement, shooting, and other actions won't be sent to the server.
+    </Warning>
+  </Step>
+
+  <Step title="Run your bot">
+    Execute your bot:
+
+    ```bash
+    node bot.js
+    ```
+
+    You should see output like:
+    ```
+    Logged in as: 12345678
+    Found game: ABCD1234
+    Joined game successfully!
+    Game joined! Map: Crossroads
+    Game mode: ffa
+    Bot spawned at: { x: 42, y: 5, z: 18 }
+    ```
+  </Step>
+</Steps>
+
+## Complete example
+
+Here's the full working bot code:
+
+```javascript bot.js
+import { Bot, Intents } from 'yolkbot';
+
+const bot = new Bot({
+  intents: [Intents.PATHFINDING]
+});
+
+// Log in anonymously
+const loginResult = await bot.loginAnonymously();
+if (!loginResult.ok) {
+  console.error('Login failed:', loginResult.error);
+  process.exit(1);
+}
+
+console.log('Logged in as:', bot.account.id);
+
+// Find a public game
+const game = await bot.findPublicGame('us-east', 'ffa');
+if (!game.ok) {
+  console.error('Failed to find game:', game.error);
+  process.exit(1);
+}
+
+console.log('Found game:', game.id);
+
+// Join the game
+const joinResult = await bot.join('MyFirstBot', game);
+if (!joinResult.ok) {
+  console.error('Failed to join:', joinResult.error);
+  process.exit(1);
+}
+
+console.log('Joined game successfully!');
+
+// Event handlers
+bot.on('gameJoined', () => {
+  console.log('Game joined! Map:', bot.game.map.name);
+  bot.emit('spawn');
+});
+
+bot.on('spawned', () => {
+  console.log('Bot spawned at:', bot.me.position);
+});
+
+bot.on('death', (killer) => {
+  console.log('Killed by:', killer?.name || 'unknown');
+  setTimeout(() => bot.emit('spawn'), 3000);
+});
+
+bot.on('playerJoin', (player) => {
+  console.log('Player joined:', player.name);
+});
+
+bot.on('chat', (player, message) => {
+  console.log(`[${player.name}]: ${message}`);
+});
+
+// Update loop (30 FPS)
+setInterval(() => {
+  bot.update();
+}, 1000 / 30);
+```
+
+## Understanding the code
 
 <AccordionGroup>
-  <Accordion icon="copy" title="Clone your docs locally">
-    During the onboarding process, you created a GitHub repository with your docs content if you didn't already have one. You can find a link to this repository in your [dashboard](https://dashboard.mintlify.com).
-    
-    To clone the repository locally so that you can make and preview changes to your docs, follow the [Cloning a repository](https://docs.github.com/en/repositories/creating-and-managing-repositories/cloning-a-repository) guide in the GitHub docs.
+  <Accordion title="What are intents?">
+    Intents enable specific features in your bot:
+    - `Intents.PATHFINDING`: Enable pathfinding and navigation
+    - `Intents.PLAYER_HEALTH`: Track player health and regeneration
+    - `Intents.CHALLENGES`: Access daily challenges
+    - `Intents.SIMULATION`: Enable client-side movement simulation
+    - `Intents.NO_AFK_KICK`: Prevent AFK disconnections
+
+    Some intents require others (e.g., `SIMULATION` requires `PATHFINDING`).
   </Accordion>
-  <Accordion icon="rectangle-terminal" title="Start the preview server">
-    1. Install the Mintlify CLI: `npm i -g mint`
-    2. Navigate to your docs directory and run: `mint dev`
-    3. Open `http://localhost:3000` to see your docs live!
-    
-    <Tip>Your preview updates automatically as you edit files.</Tip>
+
+  <Accordion title="How does the update loop work?">
+    The `bot.update()` method:
+    1. Processes queued dispatches (actions like movement, shooting)
+    2. Updates pathfinding if enabled
+    3. Syncs state with the server every few frames
+    4. Handles player health regeneration
+
+    Call it at 30 FPS (every ~33ms) to match the game's tick rate.
+  </Accordion>
+
+  <Accordion title="What's the difference between on() and emit()?">
+    - `bot.on(event, callback)`: Listen for events from the server (e.g., 'gameJoined', 'death')
+    - `bot.emit(event, ...args)`: Send actions to the server (e.g., 'spawn', 'fire', 'move')
+
+    Think of `on()` as receiving and `emit()` as sending.
+  </Accordion>
+
+  <Accordion title="How do I join a private game?">
+    Use `bot.join()` with a game code string:
+
+    ```javascript
+    await bot.join('BotName', 'ABCD1234');
+    ```
+
+    Or create your own private game:
+
+    ```javascript
+    const game = await bot.createPrivateGame('us-east', 'ffa', 'crossroads');
+    await bot.join('BotName', game);
+    ```
   </Accordion>
 </AccordionGroup>
-
-### Step 2: Deploy your changes
-
-<AccordionGroup>
-  <Accordion icon="github" title="Install our GitHub app">
-    Install the Mintlify GitHub app from your [dashboard](https://dashboard.mintlify.com/settings/organization/github-app).
-    
-    Our GitHub app automatically deploys your changes to your docs site, so you don't need to manage deployments yourself.
-</Accordion>
-<Accordion icon="palette" title="Update your site name and colors">
-    For a first change, let's update the name and colors of your docs site.
-
-    1. Open `docs.json` in your editor.
-    2. Change the `"name"` field to your project name.
-    3. Update the `"colors"` to match your brand.
-    4. Save and see your changes instantly at `http://localhost:3000`.
-
-    <Tip>Try changing the primary color to see an immediate difference!</Tip>
-  </Accordion>
-</AccordionGroup>
-
-### Step 3: Go live
-
-<Accordion icon="rocket" title="Publish your docs">
-  1. Commit and push your changes.
-  2. Your docs will update and be live in moments!
-</Accordion>
 
 ## Next steps
 
-Now that you have your docs running, explore these key features:
+Now that you have a working bot, explore these topics:
 
 <CardGroup cols={2}>
-
-<Card title="Write Content" icon="pen-to-square" href="/essentials/markdown">
-  Learn MDX syntax and start writing your documentation.
-</Card>
-
-<Card title="Customize style" icon="palette" href="/essentials/settings">
-  Make your docs match your brand perfectly.
-</Card>
-
-<Card title="Add code examples" icon="square-code" href="/essentials/code">
-  Include syntax-highlighted code blocks.
-</Card>
-
-<Card title="API documentation" icon="code" href="/api-reference/introduction">
-  Auto-generate API docs from OpenAPI specs.
-</Card>
-
+  <Card title="Movement and combat" icon="crosshairs" href="/api-reference/dispatches/movement">
+    Learn to move, aim, shoot, and engage in combat
+  </Card>
+  <Card title="Events and hooks" icon="webhook" href="/concepts/event-handling">
+    Master the event system and available hooks
+  </Card>
+  <Card title="Pathfinding" icon="route" href="/guides/advanced-usage">
+    Navigate maps with WASM-powered pathfinding
+  </Card>
+  <Card title="Game state" icon="database" href="/concepts/bot-basics">
+    Access players, teams, scores, and game data
+  </Card>
 </CardGroup>
 
-<Note>
-  **Need help?** See our [full documentation](https://mintlify.com/docs) or join our [community](https://mintlify.com/community).
-</Note>
+<Tip>
+  Join the [Discord server](https://discord.gg/VUVRmmCXzN) to get help, share your bots, and connect with the community!
+</Tip>

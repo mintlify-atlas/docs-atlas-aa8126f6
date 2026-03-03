@@ -1,0 +1,573 @@
+---
+title: 'API'
+description: 'Complete API class reference for yolkbot'
+---
+
+# API Class
+
+The API class handles all HTTP and WebSocket communication with Shell Shockers services.
+
+## Constructor
+
+```javascript
+import { API } from 'yolkbot';
+
+const api = new API({
+  proxy: 'http://proxy.example.com:8080',
+  instance: 'shellshock.io',
+  protocol: 'wss',
+  connectionTimeout: 5000,
+  customKey: 'custom-firebase-key',
+  errorLogger: (message) => console.error(message)
+});
+```
+
+### Parameters
+
+<ParamField path="params" type="object">
+  Configuration object for the API
+  
+  <ParamField path="proxy" type="string">
+    Proxy URL for connections (Node.js only)
+  </ParamField>
+  
+  <ParamField path="instance" type="string" default="shellshock.io">
+    Game instance domain
+  </ParamField>
+  
+  <ParamField path="protocol" type="string" default="wss">
+    WebSocket protocol (`ws` or `wss`)
+  </ParamField>
+  
+  <ParamField path="connectionTimeout" type="number" default="5000">
+    Connection timeout in milliseconds
+  </ParamField>
+  
+  <ParamField path="customKey" type="string">
+    Custom Firebase API key (advanced usage)
+  </ParamField>
+  
+  <ParamField path="errorLogger" type="function">
+    Custom error logging function
+  </ParamField>
+</ParamField>
+
+## Core Methods
+
+### queryServices()
+
+Query the Shell Shockers services endpoint via WebSocket.
+
+```javascript
+const result = await api.queryServices({
+  cmd: 'checkBalance',
+  firebaseId: 'user-firebase-id',
+  sessionId: 'session-id'
+});
+
+if (result.ok) {
+  console.log('Balance:', result.currentBalance);
+}
+```
+
+<ParamField path="request" type="object" required>
+  Request object with command and parameters
+  
+  <ParamField path="cmd" type="string" required>
+    Service command to execute
+  </ParamField>
+  
+  Additional fields vary by command type.
+</ParamField>
+
+**Returns:** `Promise<{ ok: boolean, ...response }>`
+
+**Common Commands:**
+
+#### auth
+Authenticate with Firebase token.
+```javascript
+{
+  cmd: 'auth',
+  firebaseToken: 'id-token'
+}
+```
+
+#### checkBalance
+Get current egg balance.
+```javascript
+{
+  cmd: 'checkBalance',
+  firebaseId: 'firebase-id',
+  sessionId: 'session-id'
+}
+```
+
+#### buy
+Purchase an item.
+```javascript
+{
+  cmd: 'buy',
+  firebaseId: 'firebase-id',
+  sessionId: 'session-id',
+  itemId: 1001,
+  save: true
+}
+```
+
+#### redeem
+Redeem a code.
+```javascript
+{
+  cmd: 'redeem',
+  firebaseId: 'firebase-id',
+  sessionId: 'session-id',
+  id: 12345,
+  code: 'FREEEGGS'
+}
+```
+
+#### chicknWinnerReady
+Check Chikn Winner status.
+```javascript
+{
+  cmd: 'chicknWinnerReady',
+  id: 12345,
+  sessionId: 'session-id'
+}
+```
+
+#### incentivizedVideoReward
+Play Chikn Winner.
+```javascript
+{
+  cmd: 'incentivizedVideoReward',
+  firebaseId: 'firebase-id',
+  id: 12345,
+  sessionId: 'session-id',
+  token: null
+}
+```
+
+#### chwReset
+Reset Chikn Winner limit.
+```javascript
+{
+  cmd: 'chwReset',
+  sessionId: 'session-id'
+}
+```
+
+#### challengeGetDaily
+Get daily challenges.
+```javascript
+{
+  cmd: 'challengeGetDaily',
+  sessionId: 'session-id',
+  playerId: 12345
+}
+```
+
+#### challengeRerollSlot
+Reroll a challenge.
+```javascript
+{
+  cmd: 'challengeRerollSlot',
+  sessionId: 'session-id',
+  slotId: 0
+}
+```
+
+#### challengeClaimReward
+Claim challenge reward.
+```javascript
+{
+  cmd: 'challengeClaimReward',
+  sessionId: 'session-id',
+  slotId: 0
+}
+```
+
+#### renewSession
+Renew session token.
+```javascript
+{
+  cmd: 'renewSession',
+  sessionId: 'session-id'
+}
+```
+
+#### urlRewardParams
+Claim URL reward.
+```javascript
+{
+  cmd: 'urlRewardParams',
+  firebaseId: 'firebase-id',
+  sessionId: 'session-id',
+  reward: 'reward-code'
+}
+```
+
+#### reward
+Claim social reward.
+```javascript
+{
+  cmd: 'reward',
+  firebaseId: 'firebase-id',
+  sessionId: 'session-id',
+  rewardTag: 'discord-join'
+}
+```
+
+## Authentication Methods
+
+### createAccount()
+
+Create a new Shell Shockers account.
+
+```javascript
+const result = await api.createAccount('user@example.com', 'password123');
+
+if (result.ok) {
+  console.log('Account created!');
+  console.log('Firebase:', result.firebase);
+  console.log('Player:', result.playerOutput);
+}
+```
+
+<ParamField path="email" type="string" required>
+  Email address for new account
+</ParamField>
+
+<ParamField path="password" type="string" required>
+  Password for new account
+</ParamField>
+
+<ParamField path="customServicesParams" type="object">
+  Additional parameters to pass to services auth call
+</ParamField>
+
+**Returns:** `Promise<{ ok: boolean, firebase?: object, playerOutput?: object }>`
+
+**Response Structure:**
+```javascript
+{
+  ok: true,
+  firebase: {
+    idToken: 'token',
+    refreshToken: 'refresh',
+    expiresIn: '3600',
+    localId: 'user-id'
+  },
+  playerOutput: {
+    id: 12345,
+    firebaseId: 'firebase-id',
+    sessionId: 'session-id',
+    // ... more account data
+  }
+}
+```
+
+### loginWithCredentials()
+
+Login with email and password.
+
+```javascript
+const result = await api.loginWithCredentials('user@example.com', 'password123');
+
+if (result.ok) {
+  console.log('Logged in!');
+  console.log('Session ID:', result.playerOutput.sessionId);
+}
+```
+
+<ParamField path="email" type="string" required>
+  Account email
+</ParamField>
+
+<ParamField path="password" type="string" required>
+  Account password
+</ParamField>
+
+<ParamField path="customServicesParams" type="object">
+  Additional parameters for services auth
+</ParamField>
+
+**Returns:** `Promise<{ ok: boolean, firebase?: object, playerOutput?: object }>`
+
+### loginWithRefreshToken()
+
+Login using a Firebase refresh token.
+
+```javascript
+const result = await api.loginWithRefreshToken('refresh-token-here');
+
+if (result.ok) {
+  console.log('Logged in with refresh token!');
+}
+```
+
+<ParamField path="refreshToken" type="string" required>
+  Firebase refresh token from previous login
+</ParamField>
+
+<ParamField path="customServicesParams" type="object">
+  Additional parameters for services auth
+</ParamField>
+
+**Returns:** `Promise<{ ok: boolean, firebase?: object, playerOutput?: object }>`
+
+**Response:**
+```javascript
+{
+  ok: true,
+  firebase: {
+    id_token: 'new-token',
+    refresh_token: 'refresh',
+    // ...
+  },
+  playerOutput: { /* account data */ }
+}
+```
+
+### loginAnonymously()
+
+Create and login with a temporary guest account.
+
+```javascript
+const result = await api.loginAnonymously();
+
+if (result.ok) {
+  console.log('Logged in anonymously!');
+  console.log('Session:', result.playerOutput.sessionId);
+}
+```
+
+<ParamField path="customServicesParams" type="object">
+  Additional parameters for services auth
+</ParamField>
+
+**Returns:** `Promise<{ ok: boolean, firebase?: object, playerOutput?: object }>`
+
+### sendEmailVerification()
+
+Send email verification link.
+
+```javascript
+const result = await api.sendEmailVerification(idToken);
+
+if (result.ok) {
+  console.log('Verification email sent to:', result.email);
+}
+```
+
+<ParamField path="idToken" type="string">
+  Firebase ID token (uses api.idToken if not provided)
+</ParamField>
+
+**Returns:** `Promise<{ ok: boolean, email?: string }>`
+
+### verifyOobCode()
+
+Verify email using out-of-band code from verification email.
+
+```javascript
+const result = await api.verifyOobCode('oob-code-from-email');
+
+if (result.ok) {
+  console.log('Email verified:', result.email);
+}
+```
+
+<ParamField path="oobCode" type="string" required>
+  Out-of-band code from verification email
+</ParamField>
+
+**Returns:** `Promise<{ ok: boolean, email?: string }>`
+
+## Properties
+
+<ParamField path="idToken" type="string | null">
+  Current Firebase ID token (set after successful authentication)
+</ParamField>
+
+<ParamField path="proxy" type="string">
+  Proxy URL being used
+</ParamField>
+
+<ParamField path="instance" type="string">
+  Game instance domain
+</ParamField>
+
+<ParamField path="protocol" type="string">
+  WebSocket protocol (ws/wss)
+</ParamField>
+
+<ParamField path="connectionTimeout" type="number">
+  Connection timeout in milliseconds
+</ParamField>
+
+<ParamField path="customKey" type="string | null">
+  Custom Firebase API key
+</ParamField>
+
+<ParamField path="errorLogger" type="function">
+  Error logging function
+</ParamField>
+
+## Error Handling
+
+All API methods return an object with an `ok` boolean property. When `ok` is false, an `error` property contains the error code.
+
+### APIError Enum
+
+```javascript
+import { APIError } from 'yolkbot';
+
+const result = await api.loginWithCredentials('user@example.com', 'wrong');
+
+if (!result.ok) {
+  if (result.error === APIError.MissingParams) {
+    console.log('Missing required parameters');
+  } else if (result.error === APIError.FirebaseRateLimited) {
+    console.log('Rate limited by Firebase');
+  } else if (result.error === APIError.NetworkFail) {
+    console.log('Network error');
+  } else if (result.error === APIError.WebSocketConnectFail) {
+    console.log('Failed to connect to services');
+  } else if (result.error === APIError.ServicesClosedEarly) {
+    console.log('Services connection closed unexpectedly');
+  } else if (result.error === APIError.InternalError) {
+    console.log('Internal error occurred');
+  }
+}
+```
+
+**Error Codes:**
+- `APIError.MissingParams` - Required parameters not provided
+- `APIError.FirebaseRateLimited` - Firebase rate limit hit
+- `APIError.NetworkFail` - Network connection failed
+- `APIError.WebSocketConnectFail` - WebSocket connection failed
+- `APIError.ServicesClosedEarly` - Services closed before responding
+- `APIError.InternalError` - Internal error or unknown issue
+
+## Examples
+
+### Basic Usage
+
+```javascript
+import { API } from 'yolkbot';
+
+const api = new API();
+
+// Login
+const login = await api.loginWithCredentials('user@example.com', 'password');
+if (!login.ok) {
+  console.error('Login failed:', login.error);
+  process.exit(1);
+}
+
+const { sessionId, firebaseId } = login.playerOutput;
+
+// Check balance
+const balance = await api.queryServices({
+  cmd: 'checkBalance',
+  firebaseId,
+  sessionId
+});
+
+console.log('Eggs:', balance.currentBalance);
+```
+
+### With Proxy
+
+```javascript
+const api = new API({
+  proxy: 'http://proxy.example.com:8080'
+});
+
+const result = await api.loginAnonymously();
+console.log('Anonymous login:', result.ok);
+```
+
+### Error Handling
+
+```javascript
+import { API, APIError } from 'yolkbot';
+
+const api = new API();
+
+const result = await api.queryServices({
+  cmd: 'buy',
+  firebaseId: 'test',
+  sessionId: 'invalid',
+  itemId: 1001,
+  save: true
+});
+
+if (!result.ok) {
+  switch (result.error) {
+    case APIError.WebSocketConnectFail:
+      console.log('Could not connect to services');
+      break;
+    case APIError.NetworkFail:
+      console.log('Network error - check your connection');
+      break;
+    default:
+      console.log('Error:', result.error);
+  }
+} else {
+  console.log('Purchase successful!');
+}
+```
+
+### Custom Firebase Key
+
+```javascript
+const api = new API({
+  customKey: 'your-custom-firebase-key'
+});
+
+const result = await api.createAccount('user@example.com', 'password');
+```
+
+### Services Query Examples
+
+```javascript
+// Redeem code
+const redeem = await api.queryServices({
+  cmd: 'redeem',
+  firebaseId: account.firebaseId,
+  sessionId: account.sessionId,
+  id: account.id,
+  code: 'FREEEGGS'
+});
+
+if (redeem.result === 'SUCCESS') {
+  console.log('Eggs earned:', redeem.eggs_given);
+  console.log('Items earned:', redeem.item_ids);
+}
+
+// Buy item
+const purchase = await api.queryServices({
+  cmd: 'buy',
+  firebaseId: account.firebaseId,
+  sessionId: account.sessionId,
+  itemId: 1001,
+  save: true
+});
+
+if (purchase.result === 'SUCCESS') {
+  console.log('Item purchased:', purchase.itemId);
+  console.log('New balance:', purchase.currentBalance);
+}
+
+// Get challenges
+const challenges = await api.queryServices({
+  cmd: 'challengeGetDaily',
+  sessionId: account.sessionId,
+  playerId: account.id
+});
+
+console.log('Challenges:', challenges);
+```

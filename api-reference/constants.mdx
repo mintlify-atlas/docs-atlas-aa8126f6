@@ -1,0 +1,437 @@
+---
+title: Constants
+description: Game constants and configuration values for Shell Shockers
+---
+
+The constants module provides static game configuration values, including game modes, movement flags, weapon data, close codes, and more.
+
+## Import
+
+```javascript
+import { 
+  GameMode, 
+  Movement, 
+  PlayType, 
+  Team,
+  CloseCode,
+  GunList
+} from 'yolkbot';
+```
+
+## Game Configuration
+
+### GameMode
+
+Available game modes in Shell Shockers.
+
+| Constant | Value | Description |
+|----------|-------|-------------|
+| `FFA` | 0 | Free For All |
+| `Team` | 1 | Team Deathmatch |
+| `Spatula` | 2 | Capture the Spatula |
+| `KOTC` | 3 | King of the Coop |
+
+```javascript
+const bot = new Bot();
+await bot.login(email, password);
+await bot.joinGame(GameMode.Team, PlayType.JoinPublic);
+```
+
+### PlayType
+
+Game join types.
+
+| Constant | Value | Description |
+|----------|-------|-------------|
+| `JoinPublic` | 0 | Join a public match |
+| `CreatePrivate` | 1 | Create a private lobby |
+| `JoinPrivate` | 2 | Join a private lobby |
+
+```javascript
+// Join a public FFA game
+await bot.joinGame(GameMode.FFA, PlayType.JoinPublic);
+
+// Create a private KOTC lobby
+await bot.joinGame(GameMode.KOTC, PlayType.CreatePrivate);
+```
+
+### Movement
+
+Movement and control flags used for player input.
+
+| Constant | Value | Description |
+|----------|-------|-------------|
+| `Forward` | 1 | Move forward |
+| `Backward` | 2 | Move backward |
+| `Left` | 4 | Move left |
+| `Right` | 8 | Move right |
+| `Jump` | 16 | Jump |
+| `Fire` | 32 | Fire weapon (useless) |
+| `Melee` | 64 | Melee attack (useless) |
+| `Scope` | 128 | Scope weapon (useless) |
+
+```javascript
+// Move forward and jump
+bot.movement(Movement.Forward | Movement.Jump);
+
+// Strafe right while moving forward
+bot.movement(Movement.Forward | Movement.Right);
+```
+
+### Team
+
+Team identifiers for team-based game modes.
+
+| Constant | Value |
+|----------|-------|
+| `Blue` | 1 |
+| `Red` | 2 |
+
+```javascript
+// Switch to blue team
+await bot.switchTeam(Team.Blue);
+```
+
+## Weapon Data
+
+### GunList
+
+Array of all weapon configurations.
+
+```javascript
+import { GunList } from 'yolkbot';
+
+console.log(GunList); // [EggK47, DozenGauge, CSG1, RPEGG, SMG, M24, AUG]
+```
+
+### Individual Guns
+
+#### EggK47
+
+Assault rifle with balanced stats.
+
+<ParamField path="weaponName" type="string">
+  EggK-47
+</ParamField>
+<ParamField path="internalName" type="string">
+  Eggk47
+</ParamField>
+<ParamField path="damage" type="number">
+  30 damage per bullet
+</ParamField>
+<ParamField path="range" type="number">
+  20 units
+</ParamField>
+<ParamField path="rof" type="number">
+  3 (rate of fire)
+</ParamField>
+<ParamField path="velocity" type="number">
+  1.5
+</ParamField>
+<ParamField path="ammo.capacity" type="number">
+  30 rounds per magazine
+</ParamField>
+<ParamField path="ammo.store" type="number">
+  240 total ammo capacity
+</ParamField>
+<ParamField path="ammo.pickup" type="number">
+  30 rounds per pickup
+</ParamField>
+<ParamField path="longReloadTime" type="number">
+  205 frames (empty reload)
+</ParamField>
+<ParamField path="shortReloadTime" type="number">
+  160 frames (tactical reload)
+</ParamField>
+
+#### DozenGauge (Scrambler)
+
+Shotgun with high burst damage.
+
+<ParamField path="weaponName" type="string">
+  Scrambler
+</ParamField>
+<ParamField path="damage" type="number">
+  8.5 damage per pellet
+</ParamField>
+<ParamField path="totalDamage" type="number">
+  170 (20 pellets)
+</ParamField>
+<ParamField path="range" type="number">
+  8 units
+</ParamField>
+<ParamField path="ammo.capacity" type="number">
+  2 shells
+</ParamField>
+<ParamField path="ammo.store" type="number">
+  24 total shells
+</ParamField>
+
+#### CSG1 (Free Ranger)
+
+Sniper rifle with high damage.
+
+<ParamField path="weaponName" type="string">
+  Free Ranger
+</ParamField>
+<ParamField path="damage" type="number">
+  105 damage per shot
+</ParamField>
+<ParamField path="range" type="number">
+  50 units
+</ParamField>
+<ParamField path="velocity" type="number">
+  1.75
+</ParamField>
+<ParamField path="ammo.capacity" type="number">
+  15 rounds
+</ParamField>
+
+#### Cluck9mm
+
+Standard pistol sidearm.
+
+<ParamField path="weaponName" type="string">
+  Cluck 9mm
+</ParamField>
+<ParamField path="damage" type="number">
+  26 damage per shot
+</ParamField>
+<ParamField path="range" type="number">
+  15 units
+</ParamField>
+<ParamField path="ammo.capacity" type="number">
+  15 rounds
+</ParamField>
+
+#### RPEGG (Eggsploder)
+
+Explosive rocket launcher.
+
+<ParamField path="weaponName" type="string">
+  RPEGG
+</ParamField>
+<ParamField path="damage" type="number">
+  140 direct damage
+</ParamField>
+<ParamField path="totalDamage" type="number">
+  192.5 (with splash)
+</ParamField>
+<ParamField path="range" type="number">
+  45 units
+</ParamField>
+<ParamField path="velocity" type="number">
+  0.4 (slow projectile)
+</ParamField>
+<ParamField path="ammo.capacity" type="number">
+  1 rocket
+</ParamField>
+<ParamField path="ammo.store" type="number">
+  3 total rockets
+</ParamField>
+
+#### SMG (Whipper)
+
+High fire rate submachine gun.
+
+<ParamField path="weaponName" type="string">
+  Whipper
+</ParamField>
+<ParamField path="internalName" type="string">
+  SMEGG
+</ParamField>
+<ParamField path="damage" type="number">
+  23 damage per shot
+</ParamField>
+<ParamField path="rof" type="number">
+  2 (fastest fire rate)
+</ParamField>
+<ParamField path="ammo.capacity" type="number">
+  40 rounds
+</ParamField>
+<ParamField path="ammo.store" type="number">
+  200 total ammo
+</ParamField>
+
+#### M24 (Crackshot)
+
+Bolt-action sniper rifle.
+
+<ParamField path="weaponName" type="string">
+  Crackshot
+</ParamField>
+<ParamField path="internalName" type="string">
+  M2DZ
+</ParamField>
+<ParamField path="damage" type="number">
+  170 damage (one-shot kill)
+</ParamField>
+<ParamField path="range" type="number">
+  60 units (longest range)
+</ParamField>
+<ParamField path="velocity" type="number">
+  2.0 (fastest projectile)
+</ParamField>
+<ParamField path="ammo.capacity" type="number">
+  1 round
+</ParamField>
+<ParamField path="ammo.store" type="number">
+  12 total rounds
+</ParamField>
+
+#### AUG (Tri-Hard)
+
+Burst-fire rifle.
+
+<ParamField path="weaponName" type="string">
+  Tri-Hard
+</ParamField>
+<ParamField path="damage" type="number">
+  32 damage per bullet
+</ParamField>
+<ParamField path="totalDamage" type="number">
+  34 (with burst)
+</ParamField>
+<ParamField path="ammo.capacity" type="number">
+  24 rounds
+</ParamField>
+
+## WebSocket Close Codes
+
+### CloseCode
+
+WebSocket close codes sent by the game server.
+
+| Code | Name | Description |
+|------|------|-------------|
+| 4000 | `gameNotFound` | Game session not found |
+| 4001 | `gameFull` | Game lobby is full |
+| 4002 | `badName` | Invalid username (not used) |
+| 4003 | `mainMenu` | Sent by client to return to menu |
+| 4004 | `gameIdleExceeded` | Kicked for inactivity |
+| 4005-4010 | `corruptedLoginData0-5` | Login data corruption |
+| 4011 | `gameMaxPlayersExceeded` | Too many players |
+| 4012 | `gameDestroyUser` | User forcefully removed |
+| 4013 | `joinGameOutOfOrder` | Invalid join sequence |
+| 4014 | `gameShuttingDown` | Server shutting down |
+| 4015 | `readyBeforeReady` | Ready packet sent too early |
+| 4016 | `booted` | Kicked from game |
+| 4017 | `gameErrorOnUserSocket` | Socket error |
+| 4018 | `uuidNotFound` | UUID not found |
+| 4019 | `sessionNotFound` | Session expired |
+| 4020 | `clusterFullCpu` | Server CPU overload |
+| 4021 | `clusterFullMem` | Server memory full |
+| 4022 | `noClustersAvailable` | No servers available |
+| 4023 | `locked` | Game locked |
+
+```javascript
+bot.on('disconnect', (code) => {
+  if (code === CloseCode.gameIdleExceeded) {
+    console.log('Kicked for being AFK');
+  } else if (code === CloseCode.sessionNotFound) {
+    console.log('Session expired, need to re-login');
+  }
+});
+```
+
+## Other Constants
+
+### ItemType
+
+Cosmetic item types.
+
+| Type | Value |
+|------|-------|
+| `Hat` | 1 |
+| `Stamp` | 2 |
+| `Primary` | 3 |
+| `Secondary` | 4 |
+| `Grenade` | 6 |
+| `Melee` | 7 |
+
+### ShellStreak
+
+Killstreak rewards (bitflags).
+
+| Reward | Value | Description |
+|--------|-------|-------------|
+| `HardBoiled` | 1 | Damage reduction |
+| `EggBreaker` | 2 | Increased damage |
+| `Restock` | 4 | Ammo refill |
+| `OverHeal` | 8 | Extra health |
+| `DoubleEggs` | 16 | Double golden eggs |
+| `MiniEgg` | 32 | Smaller hitbox (50% scale) |
+
+### ChatFlag
+
+Chat message flags.
+
+| Flag | Value |
+|------|-------|
+| `None` | 0 |
+| `Pinned` | 2 |
+| `Team` | 4 |
+| `Mod` | 254 |
+| `Server` | 255 |
+
+### BanDuration
+
+Vote ban durations.
+
+| Duration | Value |
+|----------|-------|
+| `FiveMinutes` | 0 |
+| `FifteenMinutes` | 1 |
+| `OneHour` | 2 |
+
+### GameOptionFlag
+
+Private game options (bitflags).
+
+| Option | Value |
+|--------|-------|
+| `Locked` | 1 |
+| `NoTeamChange` | 2 |
+| `NoTeamShuffle` | 4 |
+
+### SocialMedia
+
+Social media platform IDs.
+
+| Platform | Value |
+|----------|-------|
+| `Facebook` | 0 |
+| `Instagram` | 1 |
+| `Tiktok` | 2 |
+| `Discord` | 3 |
+| `Youtube` | 4 |
+| `Twitter` | 5 |
+| `Twitch` | 6 |
+
+### Other Values
+
+<ParamField path="ChiknWinnerDailyLimit" type="number">
+  3 - Maximum daily Chikn Winner spins
+</ParamField>
+
+<ParamField path="GunEquipTime" type="number">
+  13 frames - Time to switch weapons
+</ParamField>
+
+<ParamField path="FramesBetweenSyncs" type="number">
+  3 - Game state sync interval
+</ParamField>
+
+<ParamField path="StateBufferSize" type="number">
+  256 - Network buffer size
+</ParamField>
+
+## Empty Constants
+
+These constants are exported but currently empty:
+
+- `Challenges` - Challenge definitions (empty array)
+- `Items` - Item catalog (empty array)
+- `Maps` - Map list (empty array)
+- `Regions` - Server regions (empty array)
+- `CommCode` - Communication codes (empty object)

@@ -1,0 +1,718 @@
+---
+title: Event Handling
+description: Understanding the event system, available events, listeners, and message handling patterns
+---
+
+## Overview
+
+yolkbot uses an event-driven architecture. The Bot class emits events for game actions, and you can listen to these events to react to game state changes.
+
+## Event System Architecture
+
+The Bot class implements a custom event system with two types of listeners:
+
+```javascript Event system from src/bot.js:998-1023
+// Register event listener
+bot.on('eventName', (arg1, arg2) => {
+  console.log('Event fired!', arg1, arg2);
+});
+
+// Listen to ALL events
+bot.onAny((eventName, ...args) => {
+  console.log(`Event ${eventName} fired with args:`, args);
+});
+
+// Remove event listener
+bot.off('eventName', callback);
+
+// Remove all listeners for an event
+bot.off('eventName');
+```
+
+### Internal Event Emission
+
+```javascript Event emission from src/bot.js:1012-1017
+// Events are emitted internally by the bot
+bot.$emit('eventName', arg1, arg2, arg3);
+
+// This triggers:
+// 1. All specific listeners registered with bot.on('eventName', ...)
+// 2. All global listeners registered with bot.onAny(...)
+```
+
+<Info>
+  The `$emit` method is internal. You should only use `bot.on()` and `bot.onAny()` to listen to events, not emit them yourself.
+</Info>
+
+## Available Events
+
+Here's a comprehensive list of all events emitted by yolkbot:
+
+### Authentication Events
+
+```javascript Auth events from src/bot.js:358,367,397,404
+bot.on('authSuccess', (account) => {
+  console.log('Logged in as:', account.firebaseId);
+  console.log('Egg balance:', account.eggBalance);
+});
+
+bot.on('authFail', (loginData) => {
+  console.error('Login failed:', loginData);
+});
+
+bot.on('banned', (banRemaining) => {
+  console.error('Account is banned for', banRemaining, 'seconds');
+});
+
+bot.on('sessionExpired', () => {
+  console.error('Session expired - need to re-authenticate');
+});
+```
+
+### Game Connection Events
+
+```javascript Game events from src/bot.js:706,1396
+bot.on('gameReady', () => {
+  console.log('Joined game successfully!');
+  console.log('Game code:', bot.game.code);
+  console.log('Game mode:', bot.game.gameMode);
+  console.log('Map:', bot.game.map.name);
+});
+
+bot.on('close', (code) => {
+  console.log('Disconnected from game with code:', code);
+});
+
+bot.on('leave', (code) => {
+  console.log('Left game with code:', code);
+});
+```
+
+### Player Events
+
+```javascript Player events from packets
+// Player joined game
+bot.on('playerJoin', (player) => {
+  console.log(`${player.name} joined (ID: ${player.id})`);
+  console.log('Team:', player.team);
+  console.log('VIP:', player.isVip);
+});
+
+// Bot player joined (self)
+bot.on('botJoin', (me) => {
+  console.log('Bot player object created');
+  console.log('My ID:', me.id);
+  console.log('My team:', me.team);
+});
+
+// Player left game
+bot.on('playerLeave', (player) => {
+  console.log(`${player.name} left the game`);
+});
+
+// Player info received
+bot.on('playerInfo', (player) => {
+  console.log(`Info for ${player.name}:`);
+  console.log('Stats:', player.stats);
+});
+```
+
+### Combat Events
+
+```javascript Combat events from packets
+// Player fired weapon
+bot.on('playerFire', (player, shotId) => {
+  console.log(`${player.name} fired shot ${shotId}`);
+});
+
+// Player damaged
+bot.on('playerDamage', (victim, attacker, damage, damageCause) => {
+  console.log(`${victim.name} took ${damage} damage from ${attacker?.name}`);
+});
+
+// Player death
+bot.on('playerDeath', (killed, killer, oldState, damageCause) => {
+  if (killer) {
+    console.log(`${killed.name} was killed by ${killer.name}`);
+    console.log('Killer streak:', killer.streak);
+  } else {
+    console.log(`${killed.name} died`);
+  }
+});
+
+// Rocket/grenade hit
+bot.on('rocketHit', (attacker, victim, damage) => {
+  console.log(`${attacker.name}'s rocket hit ${victim.name} for ${damage}`);
+});
+
+// Melee attack
+bot.on('playerMelee', (player) => {
+  console.log(`${player.name} used melee attack`);
+});
+```
+
+### Weapon Events
+
+```javascript Weapon events from packets
+// Player reloading
+bot.on('playerReload', (player) => {
+  console.log(`${player.name} is reloading`);
+});
+
+// Player swapped weapon
+bot.on('playerSwapWeapon', (player, weaponIdx) => {
+  console.log(`${player.name} swapped to weapon ${weaponIdx}`);
+  console.log('Primary:', weaponIdx === 0);
+  console.log('Secondary:', weaponIdx === 1);
+});
+
+// Player changed gun class
+bot.on('playerChangeGun', (player, oldGunIdx, newGunIdx) => {
+  console.log(`${player.name} changed gun from ${oldGunIdx} to ${newGunIdx}`);
+});
+
+// Grenade thrown
+bot.on('playerThrowGrenade', (player) => {
+  console.log(`${player.name} threw a grenade`);
+});
+
+// Grenade exploded
+bot.on('grenadeExplode', (position) => {
+  console.log('Grenade exploded at', position);
+});
+```
+
+### Movement Events
+
+```javascript Movement events from packets
+// Player moved
+bot.on('playerMove', (player) => {
+  console.log(`${player.name} at (${player.position.x}, ${player.position.y}, ${player.position.z})`);
+});
+
+// Player rotated camera
+bot.on('playerRotate', (player) => {
+  console.log(`${player.name} yaw: ${player.view.yaw}, pitch: ${player.view.pitch}`);
+});
+
+// Player respawned
+bot.on('playerRespawn', (player) => {
+  console.log(`${player.name} respawned at`, player.position);
+  console.log('Spawn shield:', player.spawnShield);
+});
+
+// Respawn denied
+bot.on('respawnDenied', () => {
+  console.log('Cannot respawn yet');
+});
+```
+
+### Item Events
+
+```javascript Item events from packets
+// Ammo collected
+bot.on('playerCollectAmmo', (player, ammoType) => {
+  console.log(`${player.name} collected ammo type ${ammoType}`);
+});
+
+// Grenade collected
+bot.on('playerCollectGrenade', (player) => {
+  console.log(`${player.name} collected a grenade`);
+  console.log('Total grenades:', player.grenades);
+});
+
+// Item spawned on ground
+bot.on('spawnItem', (itemType, position) => {
+  console.log(`Item ${itemType} spawned at`, position);
+});
+```
+
+### Game State Events
+
+```javascript Game state events from packets
+// Game state changed (scores, flags, etc.)
+bot.on('gameStateChange', (gameState) => {
+  console.log('Team scores:', bot.game.teamScore);
+  console.log('Spatula controller:', bot.game.spatula.controlledBy);
+});
+
+// Game options changed
+bot.on('gameOptionsChange', () => {
+  console.log('Game options updated:');
+  console.log('Gravity:', bot.game.options.gravity);
+  console.log('Damage:', bot.game.options.damage);
+  console.log('Health regen:', bot.game.options.healthRegen);
+});
+
+// Game reset
+bot.on('gameReset', () => {
+  console.log('Game was reset');
+});
+
+// Force pause
+bot.on('gameForcePause', () => {
+  console.log('Game was force-paused');
+});
+```
+
+### Player State Events
+
+```javascript Player state events from packets
+// Player paused
+bot.on('playerPause', (player, isPaused) => {
+  console.log(`${player.name} ${isPaused ? 'paused' : 'unpaused'}`);
+});
+
+// Team changed
+bot.on('playerSwitchTeam', (player, oldTeam, newTeam) => {
+  console.log(`${player.name} switched from team ${oldTeam} to ${newTeam}`);
+});
+
+// Character changed (egg color)
+bot.on('playerChangeCharacter', (player, newColor) => {
+  console.log(`${player.name} changed to color ${newColor}`);
+});
+```
+
+### Streak Events
+
+```javascript Streak events from packets
+// Shell streak started
+bot.on('playerBeginStreak', (player, streakReward) => {
+  console.log(`${player.name} earned streak reward: ${streakReward}`);
+  console.log('Active rewards:', player.streakRewards);
+});
+
+// Shell streak ended
+bot.on('playerEndStreak', (player, streakReward) => {
+  console.log(`${player.name} lost streak reward: ${streakReward}`);
+});
+```
+
+### Shield Events
+
+```javascript Shield events from packets
+// Self shield hit
+bot.on('selfShieldHit', (damage) => {
+  console.log('Shield absorbed', damage, 'damage');
+  console.log('Shield HP remaining:', bot.me.hpShield);
+});
+
+// Self shield lost
+bot.on('selfShieldLost', () => {
+  console.log('Shield broken!');
+});
+```
+
+### Chat Events
+
+```javascript Chat event from src/packets/chat.js:9
+bot.on('chat', (player, message, flags) => {
+  console.log(`${player.name}: ${message}`);
+  console.log('Message flags:', flags);
+});
+```
+
+### Challenge Events
+
+```javascript Challenge events from packets
+bot.on('challengeComplete', (challenge) => {
+  console.log('Challenge completed:', challenge.name);
+  console.log('Reward:', challenge.rewardEggs, 'eggs');
+});
+
+bot.on('balanceUpdate', (newBalance) => {
+  console.log('Egg balance updated:', newBalance);
+});
+```
+
+### Pathfinding Events
+
+```javascript Pathfinding events from src/bot.js:767
+bot.on('pathfindComplete', () => {
+  console.log('Reached pathfinding destination');
+});
+```
+
+### Zone Events (King of the Coop)
+
+```javascript Zone events from packets
+import { ZoneLeaveReason } from 'yolkbot';
+
+bot.on('playerEnterZone', (player) => {
+  console.log(`${player.name} entered the control zone`);
+});
+
+bot.on('playerLeaveZone', (player, reason) => {
+  console.log(`${player.name} left zone:`, reason);
+  
+  // Reasons: 'despawned', 'killed', 'exited', 'round_ended'
+  if (reason === ZoneLeaveReason.Killed) {
+    console.log('Left because they died');
+  }
+});
+```
+
+### Map and Tick Events
+
+```javascript Map and tick events from src/bot.js:47,942
+bot.on('mapLoad', (mapData) => {
+  console.log('Map loaded:', mapData);
+  console.log('Map zones:', bot.game.map.zones);
+});
+
+bot.on('tick', () => {
+  // Called every sync (every FramesBetweenSyncs frames)
+  // Use for precise timing-dependent actions
+});
+```
+
+### Ping Events
+
+```javascript Ping event from packets
+bot.on('pingUpdate', (ping) => {
+  console.log('Current ping:', ping, 'ms');
+});
+```
+
+### Packet Hook
+
+```javascript Packet hook from src/bot.js:1098
+import { Intents } from 'yolkbot';
+
+const bot = new Bot({
+  intents: [Intents.PACKET_HOOK]
+});
+
+bot.on('packet', (rawPacket) => {
+  // rawPacket is ArrayBuffer
+  console.log('Raw packet received:', rawPacket);
+});
+```
+
+<Warning>
+  The `packet` event requires the `PACKET_HOOK` intent to be enabled.
+</Warning>
+
+## Event Listener Patterns
+
+### Single Event Listener
+
+```javascript
+const handleChat = (player, message, flags) => {
+  console.log(`${player.name}: ${message}`);
+};
+
+bot.on('chat', handleChat);
+
+// Later, remove listener
+bot.off('chat', handleChat);
+```
+
+### Multiple Event Listeners
+
+```javascript
+bot.on('playerDeath', (killed, killer) => {
+  console.log('Death handler 1');
+});
+
+bot.on('playerDeath', (killed, killer) => {
+  console.log('Death handler 2');
+});
+
+// Both handlers will be called
+```
+
+### Global Event Listener
+
+```javascript Global listener from src/bot.js:1003-1005
+bot.onAny((eventName, ...args) => {
+  console.log(`[${eventName}]`, ...args);
+});
+
+// Logs ALL events
+```
+
+### Conditional Event Handling
+
+```javascript
+bot.on('playerDeath', (killed, killer) => {
+  if (killed.id === bot.me.id) {
+    console.log('I died!');
+    // Respawn logic
+  } else if (killer?.id === bot.me.id) {
+    console.log('I got a kill!');
+  }
+});
+```
+
+### Event Chaining
+
+```javascript
+let lastAttacker = null;
+
+bot.on('playerDamage', (victim, attacker) => {
+  if (victim.id === bot.me.id) {
+    lastAttacker = attacker;
+  }
+});
+
+bot.on('playerDeath', (killed, killer) => {
+  if (killed.id === bot.me.id && killer) {
+    console.log('Killed by:', killer.name);
+    console.log('Last attacker was:', lastAttacker?.name);
+  }
+});
+```
+
+## Message Handling Patterns
+
+### Processing Game Messages
+
+The Bot processes incoming WebSocket messages automatically:
+
+```javascript Message processing from src/bot.js:1093-1119
+bot.game.socket.onmessage = (msg) => bot.processPacket(msg.data);
+
+// Internal packet processing:
+// 1. Initializes CommIn buffer with packet data
+// 2. Reads command codes from buffer
+// 3. Finds handler for each command
+// 4. Handler updates bot state and emits events
+// 5. Continues until buffer is empty
+```
+
+<Info>
+  You don't need to manually process packets. The Bot handles all message parsing and emits high-level events.
+</Info>
+
+### Packet Structure
+
+Packets contain one or more commands:
+
+```javascript Packet handler structure from src/bot.js:1044
+bot.packetHandlers = {
+  [CommCode.syncThem]: processSyncThemPacket,
+  [CommCode.fire]: processFirePacket,
+  [CommCode.hitThem]: processHitThemPacket,
+  [CommCode.chat]: processChatPacket,
+  [CommCode.addPlayer]: processAddPlayerPacket,
+  [CommCode.die]: processDiePacket,
+  // ... 30+ more handlers
+};
+```
+
+Each handler:
+1. Reads data from `CommIn` buffer
+2. Updates bot state (players, game, etc.)
+3. Emits relevant events
+
+### Example: Chat Packet Handler
+
+```javascript Chat handler from src/packets/chat.js
+const processChatPacket = (bot) => {
+  const id = CommIn.unPackInt8U();
+  const msgFlags = CommIn.unPackInt8U();
+  const text = CommIn.unPackString();
+
+  const player = bot.players[id];
+  if (player) bot.$emit('chat', player, text, msgFlags);
+};
+```
+
+## Complete Event Handling Example
+
+```javascript
+import { Bot, Intents, Movement } from 'yolkbot';
+
+const bot = new Bot({
+  intents: [
+    Intents.PLAYER_HEALTH,
+    Intents.PATHFINDING,
+    Intents.PING
+  ]
+});
+
+// Authentication events
+bot.on('authSuccess', (account) => {
+  console.log('Logged in! Egg balance:', account.eggBalance);
+});
+
+// Game connection events
+bot.on('gameReady', () => {
+  console.log(`Joined ${bot.game.gameMode} on ${bot.game.map.name}`);
+});
+
+// Player events
+bot.on('playerJoin', (player) => {
+  console.log(`${player.name} joined`);
+});
+
+bot.on('botJoin', (me) => {
+  console.log('I am player', me.id, 'on team', me.team);
+});
+
+// Combat events
+bot.on('playerDeath', (killed, killer) => {
+  if (killed.id === bot.me.id) {
+    console.log('I died to', killer?.name || 'unknown');
+  } else if (killer?.id === bot.me.id) {
+    console.log('I killed', killed.name, '- streak:', bot.me.streak);
+  }
+});
+
+bot.on('playerDamage', (victim, attacker, damage) => {
+  if (attacker?.id === bot.me.id) {
+    console.log('Hit', victim.name, 'for', damage);
+  }
+});
+
+// Chat events
+bot.on('chat', (player, message) => {
+  console.log(`[CHAT] ${player.name}: ${message}`);
+  
+  if (message.toLowerCase().includes('hello')) {
+    bot.emit('chat', 'Hello!');
+  }
+});
+
+// Respawn events
+bot.on('playerRespawn', (player) => {
+  if (player.id === bot.me.id) {
+    console.log('Respawned at', player.position);
+    bot.emit('move', Movement.Forward);  // Start moving
+  }
+});
+
+// Tick events
+let tickCount = 0;
+bot.on('tick', () => {
+  tickCount++;
+  
+  if (tickCount % 30 === 0) {  // Every 30 ticks (~1 second)
+    const target = bot.getBestTarget();
+    if (target && bot.canSee(target)) {
+      bot.emit('lookAt', target.id);
+      bot.emit('fire', true);
+    }
+  }
+});
+
+// Global event logger
+bot.onAny((eventName, ...args) => {
+  console.log(`[EVENT] ${eventName}`);
+});
+
+// Start the bot
+await bot.loginAnonymously();
+const game = await bot.findPublicGame('na-1', 'ffa');
+await bot.join('EventBot', game);
+```
+
+## Best Practices
+
+<AccordionGroup>
+  <Accordion title="Always check if player exists">
+    ```javascript
+    bot.on('playerDeath', (killed, killer) => {
+      // killer might be null if player fell off map or disconnected
+      if (killer) {
+        console.log(`${killed.name} killed by ${killer.name}`);
+      } else {
+        console.log(`${killed.name} died`);
+      }
+    });
+    ```
+  </Accordion>
+
+  <Accordion title="Use specific events over global listeners">
+    ```javascript
+    // Preferred - specific and efficient
+    bot.on('playerDeath', handler);
+    
+    // Avoid for production - processes ALL events
+    bot.onAny((event, ...args) => {
+      if (event === 'playerDeath') handler(...args);
+    });
+    ```
+  </Accordion>
+
+  <Accordion title="Clean up listeners when done">
+    ```javascript
+    const chatHandler = (player, message) => {
+      console.log(message);
+    };
+    
+    bot.on('chat', chatHandler);
+    
+    // Later...
+    bot.off('chat', chatHandler);  // Remove specific handler
+    // or
+    bot.off('chat');  // Remove ALL chat handlers
+    ```
+  </Accordion>
+
+  <Accordion title="Don't block event handlers">
+    ```javascript
+    // Bad - blocks event loop
+    bot.on('playerDeath', async (killed, killer) => {
+      await longRunningOperation();  // Other events can't fire!
+    });
+    
+    // Good - handle async work separately
+    bot.on('playerDeath', (killed, killer) => {
+      longRunningOperation().catch(console.error);
+    });
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## Debugging Events
+
+### Log All Events
+
+```javascript
+bot.onAny((eventName, ...args) => {
+  console.log(`[${new Date().toISOString()}] ${eventName}:`, args);
+});
+```
+
+### Log Packet Commands
+
+```javascript
+import { Intents } from 'yolkbot';
+
+const bot = new Bot({
+  intents: [Intents.LOG_PACKETS]
+});
+
+// Logs each packet command as it's processed
+// Output: [LOG_PACKETS] packet syncThem: 1
+```
+
+### Inspect Raw Packets
+
+```javascript
+import { Intents } from 'yolkbot';
+
+const bot = new Bot({
+  intents: [Intents.PACKET_HOOK]
+});
+
+bot.on('packet', (rawPacket) => {
+  const view = new DataView(rawPacket);
+  console.log('Packet size:', rawPacket.byteLength);
+  console.log('First byte:', view.getUint8(0));
+});
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Bot Basics" icon="robot" href="/concepts/bot-basics">
+    Learn about Bot lifecycle and state management
+  </Card>
+  <Card title="Connection Management" icon="network-wired" href="/concepts/connection-management">
+    Understand yolkws and connection handling
+  </Card>
+</CardGroup>

@@ -1,0 +1,393 @@
+---
+title: Connection Management
+description: Understanding yolkws WebSocket wrapper, connection methods, and error handling
+---
+
+## Overview
+
+yolkbot uses `yolkws`, a custom WebSocket wrapper that handles connections to Shell Shockers game servers. It provides automatic retry logic, reconnection support, and proxy capabilities.
+
+## yolkws Architecture
+
+The `yolkws` class wraps the native WebSocket API with additional features:
+
+```javascript yolkws class from src/socket.js:4
+import { yolkws } from 'yolkbot';
+
+const ws = new yolkws('wss://shellshock.io/matchmaker/', {
+  proxy: '',                           // Proxy URL (Node.js only)
+  errorLogger: (...args) => console.error(...args)
+});
+
+ws.autoReconnect = true;               // Enable automatic reconnection
+ws.binaryType = 'arraybuffer';         // Set binary data type
+ws.connectionTimeout = 5000;           // Timeout in milliseconds
+```
+
+### Constructor
+
+```javascript Constructor from src/socket.js:22
+const ws = new yolkws(url, params);
+```
+
+**Parameters:**
+- `url` (string): WebSocket URL to connect to
+- `params` (object, optional):
+  - `proxy` (string): Proxy URL for Node.js environments
+  - `errorLogger` (function): Custom error logging function
+
+<Warning>
+  Proxies only work in Node.js environments. The constructor will throw an error if you try to use a proxy in a browser.
+</Warning>
+
+## Connection Methods
+
+### tryConnect()
+
+Attempts to establish a WebSocket connection with automatic retries:
+
+```javascript tryConnect method from src/socket.js:34
+const didConnect = await ws.tryConnect();
+
+if (didConnect) {
+  console.log('Connected successfully!');
+  ws.send(JSON.stringify({ command: 'ping' }));
+} else {
+  console.error('Failed to connect after 5 attempts');
+}
+```
+
+**Retry Logic:**
+- Attempts connection up to 5 times
+- Returns `true` on successful connection
+- Returns `false` after exhausting all retries
+- Each retry waits for `connectionTimeout` milliseconds
+
+**Connection Process** (from src/socket.js:62-106):
+
+1. Creates WebSocket with proper headers (Node.js) or native WebSocket (browser)
+2. Sets up timeout timer
+3. Waits for `open` event
+4. Attaches event listeners (`message`, `close`, `error`)
+5. Cleans up timeout and resolves promise
+6. On failure, retries or returns false
+
+### Auto Reconnection
+
+Enable automatic reconnection on disconnect:
+
+```javascript Auto-reconnect from src/socket.js:6,93-103
+ws.autoReconnect = true;
+
+ws.onclose = (event) => {
+  console.log('Connection closed:', event.code);
+};
+
+// When connection drops:
+// 1. Waits 250ms
+// 2. Calls tryConnect() automatically
+// 3. Retries up to 5 times
+// 4. Calls onclose() if all retries fail
+```
+
+<Note>
+  Auto-reconnection is disabled during `close()` calls to prevent reconnecting when you intentionally disconnect.
+</Note>
+
+## Event Listeners
+
+yolkws provides standard WebSocket event handlers:
+
+```javascript Event listeners from src/socket.js:17-20,80-86
+// Connection opened
+ws.onopen = () => {
+  console.log('WebSocket opened');
+};
+
+// Message received
+ws.onmessage = (event) => {
+  console.log('Received:', event.data);
+};
+
+// Connection closed
+ws.onclose = (event) => {
+  console.log('WebSocket closed:', event.code);
+};
+
+// Error occurred
+ws.onerror = (error) => {
+  console.error('WebSocket error:', error);
+};
+
+// Called before connection attempt (internal use)
+ws.onBeforeConnect = () => {
+  console.log('About to connect...');
+};
+```
+
+<Info>
+  When `autoReconnect` is enabled, the `onclose` handler is NOT called on disconnect - only after all reconnection attempts fail.
+</Info>
+
+## Sending Data
+
+```javascript Send method from src/socket.js:109
+// Send string data
+ws.send(JSON.stringify({ command: 'joinGame', id: 'ABCD1234' }));
+
+// Send binary data
+const buffer = new ArrayBuffer(8);
+ws.send(buffer);
+```
+
+## Closing Connections
+
+```javascript Close method from src/socket.js:113
+// Close connection gracefully
+ws.close();
+
+// Close with specific code
+import { CloseCode } from 'yolkbot';
+ws.close(CloseCode.mainMenu);
+```
+
+The `close()` method:
+- Disables `autoReconnect` to prevent reconnecting
+- Calls `terminate()` if available (Node.js ws library)
+- Falls back to `close()` for browser WebSockets
+- Accepts optional close code parameter
+
+## Connection Headers
+
+In Node.js environments, yolkws sends proper headers to match browser behavior:
+
+```javascript Headers from src/socket.js:43-54
+const headers = {
+  'accept-encoding': 'gzip, deflate, br, zstd',
+  'accept-language': 'en-US,en;q=0.9',
+  'cache-control': 'no-cache',
+  'connection': 'Upgrade',
+  'origin': url.origin.replace('ws', 'http'),
+  'pragma': 'no-cache',
+  'user-agent': UserAgent  // Shell Shockers compatible UA
+};
+```
+
+## CloseCode Constants
+
+yolkbot provides CloseCode constants for handling disconnections:
+
+```javascript CloseCode enum from src/constants/CloseCode.js:1
+import { CloseCode } from 'yolkbot';
+
+// Server-sent close codes
+CloseCode.gameNotFound          // 4000 - Game code doesn't exist
+CloseCode.gameFull              // 4001 - Game is full
+CloseCode.badName               // 4002 - Invalid username (not used)
+CloseCode.gameIdleExceeded      // 4004 - Kicked for AFK
+CloseCode.gameMaxPlayersExceeded // 4011 - Too many players
+CloseCode.booted                // 4016 - Kicked by game owner
+CloseCode.locked                // 4023 - Game is locked
+CloseCode.sessionNotFound       // 4019 - Session expired
+CloseCode.clusterFullCpu        // 4020 - Server at CPU capacity
+CloseCode.clusterFullMem        // 4021 - Server at memory capacity
+CloseCode.noClustersAvailable   // 4022 - No servers available
+
+// Client-sent close codes
+CloseCode.mainMenu              // 4003 - Returning to main menu
+
+// Server error codes
+CloseCode.corruptedLoginData0   // 4005-4010 - Login data issues
+CloseCode.gameDestroyUser       // 4012 - Server destroying connection
+CloseCode.gameShuttingDown      // 4014 - Server shutdown
+CloseCode.gameErrorOnUserSocket // 4017 - Socket error
+CloseCode.uuidNotFound          // 4018 - UUID validation failed
+```
+
+### Handling Close Codes
+
+```javascript Example from src/bot.js:704-709
+bot.game.socket.onclose = (event) => {
+  if (event.code === CloseCode.gameFull) {
+    console.error('Cannot join - game is full');
+  } else if (event.code === CloseCode.sessionNotFound) {
+    console.error('Session expired, need to re-authenticate');
+  } else if (event.code === CloseCode.locked) {
+    console.error('Game is locked');
+  }
+  
+  bot.leave(-1);  // Clean up bot state
+};
+```
+
+## Error Handling and Retries
+
+### Connection Timeout
+
+```javascript Timeout handling from src/socket.js:65-68
+// If connection doesn't open within connectionTimeout:
+const timeout = setTimeout(async () => {
+  ws.socket.close();
+  // Retries or returns false
+}, ws.connectionTimeout);
+```
+
+### Error Events
+
+```javascript Error handling from src/socket.js:70-74
+const errorListener = async (event) => {
+  clearTimeout(timeout);
+  errorLogger('WebSocket error', event);
+  // Automatically retries connection
+};
+```
+
+### Retry Strategy
+
+The retry algorithm (from src/socket.js:37-40):
+
+```javascript
+async function retryOrQuit() {
+  if (tries === 5) return false;  // Give up after 5 attempts
+  return await this.tryConnect(tries + 1);
+}
+```
+
+## Proxy Support
+
+Proxies work only in Node.js with the `ws` library:
+
+```javascript Proxy configuration from src/socket.js:9,22-26,43-44
+import { Bot } from 'yolkbot';
+
+const bot = new Bot({
+  proxy: 'http://proxy.example.com:8080'
+});
+
+// Proxy is passed to all WebSocket connections:
+// - Matchmaker connection
+// - Game server connection  
+// - Services connection
+```
+
+<Warning>
+  Attempting to use a proxy in browser environments will throw an error immediately in the constructor.
+</Warning>
+
+## Connection State
+
+```javascript State tracking from src/socket.js:5
+ws.connected  // Boolean indicating connection status
+
+// Check before sending
+if (ws.connected) {
+  ws.send(data);
+} else {
+  console.error('Not connected!');
+}
+```
+
+## Complete Connection Example
+
+```javascript Full example using Bot connection from src/bot.js:697-714
+import { Bot, CloseCode } from 'yolkbot';
+
+const bot = new Bot({
+  proxy: 'http://proxy.example.com:8080',
+  connectionTimeout: 10000
+});
+
+await bot.login('email@example.com', 'password');
+
+const game = await bot.findPublicGame('na-1', 'ffa');
+
+if (!game.ok) {
+  console.error('Failed to find game:', game.error);
+  process.exit(1);
+}
+
+const joinResult = await bot.join('BotName', game);
+
+if (!joinResult.ok) {
+  console.error('Failed to join:', joinResult.error);
+  process.exit(1);
+}
+
+// Connection successful!
+bot.game.socket.onclose = (event) => {
+  console.log('Disconnected with code:', event.code);
+  
+  switch (event.code) {
+    case CloseCode.gameNotFound:
+      console.error('Game no longer exists');
+      break;
+    case CloseCode.booted:
+      console.error('Kicked from game');
+      break;
+    case CloseCode.sessionNotFound:
+      console.error('Session expired - re-authenticating...');
+      bot.loginAnonymously().then(() => {
+        // Rejoin logic here
+      });
+      break;
+    default:
+      console.error('Unexpected disconnect');
+  }
+};
+```
+
+## Best Practices
+
+<AccordionGroup>
+  <Accordion title="Always check connection results">
+    ```javascript
+    const didConnect = await ws.tryConnect();
+    if (!didConnect) {
+      // Handle failure - don't assume connection succeeded
+      console.error('Connection failed after retries');
+      return;
+    }
+    ```
+  </Accordion>
+
+  <Accordion title="Set binary type before connecting">
+    ```javascript
+    ws.binaryType = 'arraybuffer';
+    await ws.tryConnect();  // Binary type must be set before connection
+    ```
+  </Accordion>
+
+  <Accordion title="Use autoReconnect for stability">
+    ```javascript
+    ws.autoReconnect = true;  // Reconnects automatically on network issues
+    
+    ws.onclose = () => {
+      // Only called after all reconnection attempts fail
+      console.error('Permanently disconnected');
+    };
+    ```
+  </Accordion>
+
+  <Accordion title="Handle close codes appropriately">
+    ```javascript
+    ws.onclose = (event) => {
+      if (event.code === CloseCode.sessionNotFound) {
+        // Re-authenticate and reconnect
+      } else if (event.code === CloseCode.booted) {
+        // Don't reconnect - user was kicked
+      }
+    };
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Bot Basics" icon="robot" href="/concepts/bot-basics">
+    Learn about Bot lifecycle and state management
+  </Card>
+  <Card title="Event Handling" icon="bolt" href="/concepts/event-handling">
+    Master the event system and message handling
+  </Card>
+</CardGroup>

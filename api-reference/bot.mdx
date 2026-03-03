@@ -1,0 +1,696 @@
+---
+title: 'Bot'
+description: 'Complete Bot class reference for yolkbot'
+---
+
+# Bot Class
+
+The main Bot class for creating and controlling Shell Shockers bots.
+
+## Constructor
+
+```javascript
+import { Bot, Intents } from 'yolkbot';
+
+const bot = new Bot({
+  intents: [Intents.PATHFINDING, Intents.SIMULATION],
+  proxy: 'http://proxy.example.com:8080',
+  instance: 'shellshock.io',
+  protocol: 'wss',
+  connectionTimeout: 5000,
+  errorLogger: (message) => console.error(message)
+});
+```
+
+### Parameters
+
+<ParamField path="params" type="object">
+  Configuration object for the bot
+  
+  <ParamField path="intents" type="Intents[]">
+    Array of intents to enable bot capabilities. Available intents:
+    - `Intents.PATHFINDING` - Enable pathfinding capabilities
+    - `Intents.SIMULATION` - Enable client-side position simulation
+    - `Intents.COSMETIC_DATA` - Load cosmetic item data
+    - `Intents.BOT_STATS` - Track bot statistics
+    - `Intents.CHALLENGES` - Enable daily challenges
+    - `Intents.NO_AFK_KICK` - Prevent AFK kicks
+    - `Intents.RENEW_SESSION` - Auto-renew session tokens
+    - `Intents.PLAYER_HEALTH` - Track player health regeneration
+    - `Intents.PACKET_HOOK` - Hook into raw packets
+    - `Intents.LOG_PACKETS` - Log all packets
+    - `Intents.DEBUG_BUFFER` - Debug state buffer
+    - `Intents.SKIP_LOGIN` - Skip automatic login
+  </ParamField>
+  
+  <ParamField path="proxy" type="string">
+    Proxy URL for connections (Node.js only)
+  </ParamField>
+  
+  <ParamField path="instance" type="string" default="shellshock.io">
+    Game instance domain
+  </ParamField>
+  
+  <ParamField path="protocol" type="string" default="wss">
+    WebSocket protocol (`ws` or `wss`)
+  </ParamField>
+  
+  <ParamField path="connectionTimeout" type="number" default="5000">
+    Connection timeout in milliseconds
+  </ParamField>
+  
+  <ParamField path="errorLogger" type="function">
+    Custom error logging function
+  </ParamField>
+</ParamField>
+
+## Authentication Methods
+
+### login()
+
+Login with email and password.
+
+```javascript
+const result = await bot.login('user@example.com', 'password123');
+if (result.ok) {
+  console.log('Logged in as:', result.account.firebaseId);
+}
+```
+
+<ParamField path="email" type="string" required>
+  Account email address
+</ParamField>
+
+<ParamField path="password" type="string" required>
+  Account password
+</ParamField>
+
+**Returns:** `Promise<{ ok: boolean, account?: object, error?: LoginError }>`
+
+### loginWithRefreshToken()
+
+Login using a Firebase refresh token.
+
+```javascript
+const result = await bot.loginWithRefreshToken('refresh-token-here');
+```
+
+<ParamField path="refreshToken" type="string" required>
+  Firebase refresh token
+</ParamField>
+
+**Returns:** `Promise<{ ok: boolean, account?: object, error?: LoginError }>`
+
+### loginAnonymously()
+
+Login as a guest account.
+
+```javascript
+const result = await bot.loginAnonymously();
+```
+
+**Returns:** `Promise<{ ok: boolean, account?: object, error?: LoginError }>`
+
+### createAccount()
+
+Create a new account.
+
+```javascript
+const result = await bot.createAccount('new@example.com', 'password123');
+```
+
+<ParamField path="email" type="string" required>
+  Email for new account
+</ParamField>
+
+<ParamField path="password" type="string" required>
+  Password for new account
+</ParamField>
+
+**Returns:** `Promise<{ ok: boolean, account?: object, error?: LoginError }>`
+
+## Game Connection Methods
+
+### getRegions()
+
+Get available game regions.
+
+```javascript
+const result = await bot.getRegions();
+if (result.ok) {
+  console.log('Regions:', result.regionList);
+}
+```
+
+**Returns:** `Promise<{ ok: boolean, regionList?: Array }>`
+
+### findPublicGame()
+
+Find a public game in a specific region and mode.
+
+```javascript
+const game = await bot.findPublicGame('us-east', 'ffa');
+if (game.ok) {
+  console.log('Found game:', game.id);
+}
+```
+
+<ParamField path="region" type="string" required>
+  Region ID (e.g., 'us-east', 'eu-west')
+</ParamField>
+
+<ParamField path="mode" type="string | number" required>
+  Game mode: 'ffa', 'teams', 'captula', 'king' or GameMode enum value
+</ParamField>
+
+**Returns:** `Promise<{ ok: boolean, id?: string, uuid?: string, region?: string, subdomain?: string }>`
+
+### createPrivateGame()
+
+Create a private game.
+
+```javascript
+const game = await bot.createPrivateGame('us-east', 'teams', 'Crossroads');
+```
+
+<ParamField path="region" type="string" required>
+  Region ID
+</ParamField>
+
+<ParamField path="mode" type="string | number" required>
+  Game mode
+</ParamField>
+
+<ParamField path="map" type="string" required>
+  Map name (e.g., 'Crossroads', 'Warehouse')
+</ParamField>
+
+**Returns:** `Promise<{ ok: boolean, id?: string, uuid?: string, region?: string, subdomain?: string }>`
+
+### join()
+
+Join a game by code or game object.
+
+```javascript
+// Join by game code
+await bot.join('MyBot', 'abc123');
+
+// Join by game object
+await bot.join('MyBot', gameObject);
+```
+
+<ParamField path="name" type="string" required>
+  Bot's display name in game
+</ParamField>
+
+<ParamField path="data" type="string | object" required>
+  Game code string or game object from findPublicGame/createPrivateGame
+</ParamField>
+
+**Returns:** `Promise<{ ok: boolean, error?: GameJoinError }>`
+
+### leave()
+
+Leave the current game.
+
+```javascript
+bot.leave();
+```
+
+<ParamField path="code" type="number" default="CloseCode.mainMenu">
+  Close code reason
+</ParamField>
+
+## Event System
+
+### on()
+
+Listen for bot events.
+
+```javascript
+bot.on('gameJoined', (data) => {
+  console.log('Joined game:', data);
+});
+
+bot.on('addPlayer', (player) => {
+  console.log('Player joined:', player.name);
+});
+
+bot.on('die', (killerID, weaponID) => {
+  console.log('Died to player', killerID);
+});
+```
+
+<ParamField path="event" type="string" required>
+  Event name to listen for
+</ParamField>
+
+<ParamField path="callback" type="function" required>
+  Callback function when event fires
+</ParamField>
+
+**Common Events:**
+- `authSuccess` - Authentication successful
+- `authFail` - Authentication failed
+- `gameJoined` - Successfully joined game
+- `addPlayer` - Player joined game
+- `removePlayer` - Player left game
+- `die` - Bot died
+- `respawn` - Bot respawned
+- `chat` - Chat message received
+- `fire` - Player fired weapon
+- `hitThem` - Bot hit another player
+- `hitMe` - Bot was hit
+- `tick` - Game tick (every 5 frames)
+- `close` - Game connection closed
+
+### onAny()
+
+Listen to all events.
+
+```javascript
+bot.onAny((eventName, ...args) => {
+  console.log('Event:', eventName, args);
+});
+```
+
+<ParamField path="callback" type="function" required>
+  Callback function receiving (eventName, ...args)
+</ParamField>
+
+### off()
+
+Remove event listener.
+
+```javascript
+const handler = () => console.log('fired');
+bot.on('fire', handler);
+bot.off('fire', handler);
+
+// Remove all listeners for event
+bot.off('fire');
+```
+
+<ParamField path="event" type="string" required>
+  Event name
+</ParamField>
+
+<ParamField path="callback" type="function">
+  Specific callback to remove (omit to remove all)
+</ParamField>
+
+### emit()
+
+Emit game actions (dispatches).
+
+```javascript
+// Move forward
+bot.emit('movement', Movement.Forward);
+
+// Look at position
+bot.emit('lookAtPos', { x: 10, y: 5, z: 10 });
+
+// Send chat
+bot.emit('chat', 'Hello!');
+```
+
+<ParamField path="event" type="string" required>
+  Dispatch event name
+</ParamField>
+
+<ParamField path="args" type="any">
+  Arguments for the dispatch
+</ParamField>
+
+## Dispatch System
+
+### dispatch()
+
+Manually dispatch an action.
+
+```javascript
+import { MovementDispatch, Movement } from 'yolkbot';
+
+bot.dispatch(new MovementDispatch(Movement.Forward | Movement.Jump));
+```
+
+<ParamField path="dispatch" type="Dispatch" required>
+  Dispatch instance to execute
+</ParamField>
+
+<ParamField path="isEmit" type="boolean" default="false">
+  Whether this is from emit() call
+</ParamField>
+
+**Returns:** `boolean` - Whether dispatch was validated and queued
+
+### update()
+
+Update the bot's state (called automatically in game loop).
+
+```javascript
+// Manual update loop
+setInterval(() => bot.update(), 33); // ~30 FPS
+```
+
+## Game State Properties
+
+### state
+
+Bot's current state.
+
+```javascript
+console.log(bot.state.yaw);        // Camera yaw
+console.log(bot.state.pitch);      // Camera pitch
+console.log(bot.state.controlKeys); // Current movement keys
+console.log(bot.state.inGame);     // Whether in game
+```
+
+**Properties:**
+- `name` (string) - Bot's display name
+- `weaponIdx` (number) - Current weapon index
+- `inGame` (boolean) - Whether connected to game
+- `yaw` (number) - Camera horizontal rotation
+- `pitch` (number) - Camera vertical rotation
+- `controlKeys` (number) - Bitmask of pressed keys
+- `onGround` (number) - Frames on ground counter
+- `dx`, `dy`, `dz` (number) - Velocity components
+- `reloading` (boolean) - Currently reloading
+- `swappingGun` (boolean) - Currently swapping weapon
+- `stateIdx` (number) - Current state index
+- `buffer` (array) - State buffer for sync
+
+### me
+
+Bot's player object.
+
+```javascript
+console.log(bot.me.position);  // { x, y, z }
+console.log(bot.me.hp);        // Health points
+console.log(bot.me.team);      // Team ID
+console.log(bot.me.kills);     // Kill count
+console.log(bot.me.deaths);    // Death count
+```
+
+See GamePlayer class for full properties.
+
+### players
+
+All players in the game.
+
+```javascript
+for (const [id, player] of Object.entries(bot.players)) {
+  console.log(player.name, player.position);
+}
+```
+
+### game
+
+Game information.
+
+```javascript
+console.log(bot.game.code);       // Game code
+console.log(bot.game.region);     // Region
+console.log(bot.game.gameMode);   // Game mode
+console.log(bot.game.map.name);   // Map name
+console.log(bot.game.teamScore);  // [0, blue, red]
+```
+
+**Properties:**
+- `code` (string) - Game join code
+- `region` (string) - Server region
+- `gameMode` (string) - 'ffa', 'teams', 'captula', 'king'
+- `gameModeId` (number) - Game mode ID
+- `map` (object) - Map information
+- `playerLimit` (number) - Max players
+- `isGameOwner` (boolean) - Whether bot owns game
+- `isPrivate` (boolean) - Whether game is private
+- `options` (object) - Game options
+- `teamScore` (array) - Team scores
+- `spatula` (object) - Spatula game state
+- `kotc` (object) - King of the Coop state
+
+### account
+
+Account information.
+
+```javascript
+console.log(bot.account.id);           // Player ID
+console.log(bot.account.eggBalance);   // Egg currency
+console.log(bot.account.loadout);      // Current loadout
+console.log(bot.account.vip);          // VIP status
+```
+
+**Properties:**
+- `id` (number) - Player account ID
+- `firebaseId` (string) - Firebase user ID
+- `sessionId` (string) - Session ID
+- `email` (string) - Account email
+- `eggBalance` (number) - Egg currency balance
+- `loadout` (object) - Equipped items
+- `ownedItemIds` (array) - Owned item IDs
+- `vip` (boolean) - VIP subscription status
+- `emailVerified` (boolean) - Email verification status
+- `challenges` (array) - Daily challenges (with CHALLENGES intent)
+- `stats` (object) - Player statistics (with BOT_STATS intent)
+
+## Utility Methods
+
+### canSee()
+
+Check if bot has line of sight to a target.
+
+```javascript
+const target = bot.getBestTarget();
+if (target && bot.canSee(target)) {
+  console.log('Can see target!');
+}
+```
+
+<ParamField path="target" type="GamePlayer" required>
+  Target player to check line of sight
+</ParamField>
+
+**Returns:** `boolean`
+
+**Requires:** `Intents.PATHFINDING`
+
+### getBestTarget()
+
+Get the closest enemy player.
+
+```javascript
+const target = bot.getBestTarget();
+if (target) {
+  bot.emit('lookAtPos', target.position);
+}
+```
+
+**Returns:** `GamePlayer | null`
+
+## Economy Methods
+
+### checkChiknWinner()
+
+Check Chikn Winner status.
+
+```javascript
+const result = await bot.checkChiknWinner();
+if (result.ok) {
+  console.log('Can play:', !result.cw.atLimit);
+  console.log('Next play in:', result.cw.secondsUntilPlay);
+}
+```
+
+**Returns:** `Promise<{ ok: boolean, cw?: object }>`
+
+### playChiknWinner()
+
+Play Chikn Winner mini-game.
+
+```javascript
+const result = await bot.playChiknWinner();
+if (result.ok) {
+  console.log('Won eggs:', result.eggsGiven);
+  console.log('Won items:', result.itemIds);
+}
+```
+
+<ParamField path="doPrematureCooldownCheck" type="boolean" default="true">
+  Check cooldown before attempting
+</ParamField>
+
+**Returns:** `Promise<{ ok: boolean, eggsGiven?: number, itemIds?: number[] }>`
+
+### resetChiknWinner()
+
+Reset daily Chikn Winner limit (costs 200 eggs).
+
+```javascript
+const result = await bot.resetChiknWinner();
+```
+
+**Returns:** `Promise<{ ok: boolean, cw?: object }>`
+
+### refreshBalance()
+
+Refresh egg balance.
+
+```javascript
+const result = await bot.refreshBalance();
+console.log('Balance:', result.currentBalance);
+```
+
+**Returns:** `Promise<{ ok: boolean, currentBalance?: number }>`
+
+### redeemCode()
+
+Redeem a code for rewards.
+
+```javascript
+const result = await bot.redeemCode('FREEEGGS');
+if (result.ok) {
+  console.log('Eggs:', result.eggsGiven);
+  console.log('Items:', result.itemIds);
+}
+```
+
+<ParamField path="code" type="string" required>
+  Redemption code
+</ParamField>
+
+**Returns:** `Promise<{ ok: boolean, eggsGiven?: number, itemIds?: number[] }>`
+
+### buyItem()
+
+Purchase an item from the shop.
+
+```javascript
+const result = await bot.buyItem(1001); // Buy ball cap
+if (result.ok) {
+  console.log('Bought item:', result.itemId);
+  console.log('New balance:', result.currentBalance);
+}
+```
+
+<ParamField path="itemId" type="number" required>
+  Item ID to purchase
+</ParamField>
+
+**Returns:** `Promise<{ ok: boolean, itemId?: number, currentBalance?: number }>`
+
+## Challenge Methods
+
+### refreshChallenges()
+
+Refresh daily challenges (requires CHALLENGES intent).
+
+```javascript
+const result = await bot.refreshChallenges();
+if (result.ok) {
+  result.challenges.forEach(c => {
+    console.log(`${c.name}: ${c.progressNum}/${c.goalNum}`);
+  });
+}
+```
+
+**Returns:** `Promise<{ ok: boolean, challenges?: Array }>`
+
+### rerollChallenge()
+
+Reroll a challenge.
+
+```javascript
+const result = await bot.rerollChallenge(0);
+```
+
+<ParamField path="challengeId" type="number" required>
+  Challenge slot ID (0-2)
+</ParamField>
+
+**Returns:** `Promise<{ ok: boolean, challenges?: Array }>`
+
+### claimChallenge()
+
+Claim completed challenge rewards.
+
+```javascript
+const result = await bot.claimChallenge(0);
+if (result.ok) {
+  console.log('Earned:', result.eggReward, 'eggs');
+}
+```
+
+<ParamField path="challengeId" type="number" required>
+  Challenge slot ID (0-2)
+</ParamField>
+
+**Returns:** `Promise<{ ok: boolean, eggReward?: number, updatedChallenges?: Array }>`
+
+## Game Owner Methods
+
+### updateGameOptions()
+
+Update game options (requires game ownership).
+
+```javascript
+bot.game.options.gravity = 2;
+bot.game.options.damage = 0.5;
+bot.game.options.locked = true;
+bot.updateGameOptions();
+```
+
+## Properties
+
+<ParamField path="api" type="API">
+  API instance for service calls
+</ParamField>
+
+<ParamField path="ping" type="number">
+  Current ping in milliseconds
+</ParamField>
+
+<ParamField path="intents" type="Intents[]">
+  Enabled intents
+</ParamField>
+
+<ParamField path="hasQuit" type="boolean">
+  Whether bot has quit
+</ParamField>
+
+## Example: Complete Bot
+
+```javascript
+import { Bot, Intents, Movement } from 'yolkbot';
+
+const bot = new Bot({
+  intents: [Intents.PATHFINDING, Intents.SIMULATION]
+});
+
+// Login
+await bot.login('user@example.com', 'password');
+
+// Find and join game
+const game = await bot.findPublicGame('us-east', 'ffa');
+await bot.join('MyBot', game);
+
+// Event handlers
+bot.on('gameJoined', () => {
+  console.log('Joined game!');
+  setInterval(() => bot.update(), 33);
+});
+
+bot.on('tick', () => {
+  const target = bot.getBestTarget();
+  if (target && bot.canSee(target)) {
+    bot.emit('lookAtPos', target.position);
+    bot.emit('fire');
+  } else {
+    bot.emit('movement', Movement.Forward);
+  }
+});
+
+bot.on('die', () => {
+  setTimeout(() => bot.emit('respawn'), 1000);
+});
+```

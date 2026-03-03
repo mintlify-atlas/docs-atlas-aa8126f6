@@ -1,0 +1,394 @@
+---
+title: Enums
+description: Error codes and intent flags for yolkbot
+---
+
+Enums provide error codes, intent flags, and other enumerated values used throughout yolkbot.
+
+## Import
+
+```javascript
+import { 
+  APIError,
+  LoginError,
+  GameJoinError,
+  Intents,
+  CleanupLevel
+} from 'yolkbot';
+```
+
+## Error Enums
+
+### APIError
+
+Base API error codes.
+
+| Error | Value | Description |
+|-------|-------|-------------|
+| `WebSocketConnectFail` | `'websocket_connect_fail'` | Failed to connect to WebSocket |
+| `MissingParams` | `'missing_params'` | Required parameters missing |
+| `NetworkFail` | `'firebase_network_failed'` | Firebase network error |
+| `ServicesClosedEarly` | `'services_closed_early'` | Services shut down unexpectedly |
+| `InternalError` | `'unknown_error'` | Unknown internal error |
+| `FirebaseRateLimited` | `'firebase_rate_limited'` | Firebase rate limit hit |
+
+```javascript
+try {
+  await bot.someMethod();
+} catch (error) {
+  if (error.code === APIError.NetworkFail) {
+    console.log('Network connection failed');
+  }
+}
+```
+
+### LoginError
+
+Login-specific error codes (extends APIError).
+
+| Error | Value | Description |
+|-------|-------|-------------|
+| All from APIError | - | Inherits all APIError codes |
+| `AccountBanned` | `'account_banned'` | Account is banned |
+
+```javascript
+try {
+  await bot.login(email, password);
+} catch (error) {
+  if (error.code === LoginError.AccountBanned) {
+    console.log('This account has been banned');
+  } else if (error.code === LoginError.NetworkFail) {
+    console.log('Login failed due to network issues');
+  }
+}
+```
+
+### BuyItemError
+
+Shop purchase error codes.
+
+| Error | Value | Description |
+|-------|-------|-------------|
+| `SessionExpired` | `'PLAYER_NOT_FOUND'` | Player session expired |
+| `ItemNotFound` | `'ITEM_NOT_FOUND'` | Item does not exist |
+| `ItemAlreadyOwned` | `'ALREADY_OWNED'` | Already own this item |
+| `CannotAfford` | `'INSUFFICIENT_FUNDS'` | Not enough golden eggs |
+| `InternalError` | `'UNKNOWN_ERROR'` | Unknown error |
+
+```javascript
+try {
+  await bot.buyItem('hat_123');
+} catch (error) {
+  if (error.code === BuyItemError.CannotAfford) {
+    console.log('Not enough eggs to buy this item');
+  } else if (error.code === BuyItemError.ItemAlreadyOwned) {
+    console.log('You already own this item');
+  }
+}
+```
+
+### ChicknWinnerError
+
+Chikn Winner wheel error codes.
+
+| Error | Value | Description |
+|-------|-------|-------------|
+| `OnCooldown` | `'on_cooldown'` | Must wait before next spin |
+| `HitDailyLimit` | `'hit_daily_limit'` | Reached daily spin limit |
+| `NotAtDailyLimit` | `'not_at_limit'` | Cannot reset (not at limit) |
+| `NotEnoughResetEggs` | `'not_enough_eggs'` | Cannot afford limit reset |
+| `SessionExpired` | `'session_expired'` | Session expired |
+| `InternalError` | `'unknown_error'` | Unknown error |
+
+```javascript
+try {
+  const reward = await bot.spinChicknWinner();
+  console.log('Won:', reward);
+} catch (error) {
+  if (error.code === ChicknWinnerError.HitDailyLimit) {
+    console.log('Reached daily limit of 3 spins');
+  } else if (error.code === ChicknWinnerError.OnCooldown) {
+    console.log('Wheel is on cooldown');
+  }
+}
+```
+
+### GameFindError
+
+Game search error codes.
+
+| Error | Value | Description |
+|-------|-------|-------------|
+| `MissingParams` | `'missing_params'` | Missing required parameters |
+| `InvalidRegion` | `'region_not_in_list'` | Invalid region specified |
+| `InvalidMode` | `'mode_not_in_list'` | Invalid game mode |
+| `InvalidMap` | `'map_not_in_list'` | Invalid map selection |
+| `GameNotFound` | `'game_not_found'` | No game found |
+| `SessionExpired` | `'session_expired'` | Session expired |
+| `InternalError` | `'unknown_error'` | Unknown error |
+
+### GameJoinError
+
+Game join error codes.
+
+| Error | Value | Description |
+|-------|-------|-------------|
+| `MissingParams` | `'missing_params'` | Missing parameters |
+| `InvalidObject` | `'invalid_game_object'` | Invalid game object |
+| `WebSocketConnectFail` | `'websocket_connect_fail'` | WebSocket connection failed |
+| `GameNotFound` | `'game_not_found'` | Game not found |
+| `InternalError` | `'unknown_error'` | Unknown error |
+
+```javascript
+try {
+  await bot.joinGame(GameMode.FFA, PlayType.JoinPublic);
+} catch (error) {
+  if (error.code === GameJoinError.WebSocketConnectFail) {
+    console.log('Failed to connect to game server');
+  } else if (error.code === GameJoinError.GameNotFound) {
+    console.log('Game session no longer exists');
+  }
+}
+```
+
+### MatchmakerError
+
+Matchmaker connection errors.
+
+| Error | Value |
+|-------|-------|
+| `WebSocketConnectFail` | `'websocket_connect_fail'` |
+
+### RedeemCodeError
+
+Code redemption error codes.
+
+| Error | Value | Description |
+|-------|-------|-------------|
+| `SessionExpired` | `'PLAYER_NOT_FOUND'` | Session expired |
+| `CurrentlyRedeemingElsewhere` | `'CODE_DOUBLE_DOUBLE'` | Code being redeemed elsewhere |
+| `AlreadyRedeemed` | `'CODE_PREV_REDEEMED'` | Code already used |
+| `InvalidCode` | `'CODE_NOT_FOUND'` | Invalid code |
+| `Ratelimited` | `'RATE_LIMIT_REACHED'` | Too many attempts |
+| `InternalError` | `'UNKNOWN_ERROR'` | Unknown error |
+
+```javascript
+try {
+  await bot.redeemCode('PROMO2024');
+  console.log('Code redeemed successfully!');
+} catch (error) {
+  if (error.code === RedeemCodeError.AlreadyRedeemed) {
+    console.log('You already used this code');
+  } else if (error.code === RedeemCodeError.InvalidCode) {
+    console.log('Invalid code');
+  }
+}
+```
+
+### ClaimSocialError
+
+Social media reward claim errors.
+
+| Error | Value | Description |
+|-------|-------|-------------|
+| `SessionExpired` | `'reward_expired_session'` | Session expired |
+| `InvalidReward` | `'REWARD_NOT_FOUND'` | Reward not found |
+| `AlreadyRedeemed` | `'REWARD_PREV_GIVEN'` | Already claimed |
+| `InternalError` | `'unknown_error'` | Unknown error |
+
+### ClaimURLError
+
+URL reward claim errors.
+
+| Error | Value | Description |
+|-------|-------|-------------|
+| `SessionExpired` | `'urlRewardParams_expired_session'` | Session expired |
+| `InvalidReward` | `'REWARD_NOT_FOUND'` | Reward not found |
+| `AlreadyRedeemed` | `'REWARD_PREV_GIVEN'` | Already claimed |
+| `InternalError` | `'unknown_error'` | Unknown error |
+
+### ChallengeRerollError
+
+Challenge reroll errors.
+
+| Error | Value | Description |
+|-------|-------|-------------|
+| `SessionExpired` | `'challengeRerollSlot_expired_session'` | Session expired |
+| `ChallengeNotFound` | `'challenge_not_found'` | Challenge not found |
+| `ChallengeNotAssigned` | `'challenge_reroll_not_found'` | Challenge not assigned |
+| `NotEnoughEggs` | `'insufficient_eggs'` | Not enough eggs |
+| `InternalError` | `'unknown_error'` | Unknown error |
+
+### ChallengeClaimError
+
+Challenge reward claim errors.
+
+| Error | Value | Description |
+|-------|-------|-------------|
+| `SessionExpired` | `'challengeClaimReward_expired_session'` | Session expired |
+| `ChallengeNotFound` | `'challenge_claim_not_found'` | Challenge not found |
+| `ChallengeNotCompleted` | `'challenge_not_completed'` | Challenge not complete |
+| `InternalError` | `'unknown_error'` | Unknown error |
+
+```javascript
+try {
+  await bot.claimChallengeReward(challengeId);
+} catch (error) {
+  if (error.code === ChallengeClaimError.ChallengeNotCompleted) {
+    console.log('Challenge not completed yet');
+  }
+}
+```
+
+### PathfindError
+
+Pathfinding errors.
+
+| Error | Value | Description |
+|-------|-------|-------------|
+| `NoPathFound` | `'no_path_found'` | No valid path exists |
+| `PathTooShort` | `'path_too_short'` | Path too short to navigate |
+
+```javascript
+try {
+  await bot.pathfindTo(x, y, z);
+} catch (error) {
+  if (error.code === PathfindError.NoPathFound) {
+    console.log('Cannot find path to destination');
+  }
+}
+```
+
+## Intent Flags
+
+### Intents
+
+Bot capability flags that enable specific features.
+
+| Intent | Value | Description |
+|--------|-------|-------------|
+| `CHALLENGES` | 1 | Track challenge progress |
+| `BOT_STATS` | 2 | Enable bot statistics |
+| `PATHFINDING` | 3 | Enable pathfinding system |
+| `PING` | 5 | Show network ping |
+| `COSMETIC_DATA` | 6 | Load cosmetic data |
+| `PLAYER_HEALTH` | 7 | Track player health |
+| `PACKET_HOOK` | 8 | Hook into packet system |
+| `LOG_PACKETS` | 10 | Log network packets |
+| `SKIP_LOGIN` | 11 | Skip login process |
+| `DEBUG_BUFFER` | 12 | Debug network buffer |
+| `NO_AFK_KICK` | 16 | Disable AFK kick |
+| `LOAD_MAP` | 17 | Load map data |
+| `OBSERVE_GAME` | 18 | Spectator mode |
+| `RENEW_SESSION` | 21 | Auto-renew session |
+| `VIP_HIDE_BADGE` | 22 | Hide VIP badge |
+| `SIMULATION` | 23 | Simulation mode |
+| `MANUAL_UPDATE` | 24 | Manual game updates |
+| `FASTER_RESPAWN` | 25 | Faster respawn time |
+
+```javascript
+const bot = new Bot({
+  intents: [
+    Intents.PATHFINDING,
+    Intents.PLAYER_HEALTH,
+    Intents.NO_AFK_KICK
+  ]
+});
+```
+
+## Other Enums
+
+### ZoneLeaveReason
+
+Reasons for leaving a KOTC zone.
+
+| Reason | Value | Description |
+|--------|-------|-------------|
+| `Despawned` | `'despawned'` | Player despawned |
+| `Killed` | `'killed'` | Player was killed |
+| `WalkedOut` | `'exited'` | Player left zone |
+| `RoundEnded` | `'round_ended'` | Round ended |
+
+```javascript
+bot.on('zoneLeave', (reason) => {
+  if (reason === ZoneLeaveReason.Killed) {
+    console.log('Killed while in zone');
+  }
+});
+```
+
+### CleanupLevel
+
+Bot cleanup levels.
+
+| Level | Value | Description |
+|-------|-------|-------------|
+| `None` | 0 | No cleanup |
+| `Partial` | 1 | Partial cleanup |
+| `Full` | 2 | Full cleanup |
+
+## Error Handling Patterns
+
+### Basic Try-Catch
+
+```javascript
+try {
+  await bot.login(email, password);
+} catch (error) {
+  console.error('Login failed:', error.code, error.message);
+}
+```
+
+### Specific Error Handling
+
+```javascript
+try {
+  await bot.joinGame(GameMode.Team, PlayType.JoinPublic);
+} catch (error) {
+  switch (error.code) {
+    case GameJoinError.GameNotFound:
+      console.log('Game not found, retrying...');
+      await bot.joinGame(GameMode.Team, PlayType.JoinPublic);
+      break;
+    case GameJoinError.WebSocketConnectFail:
+      console.log('Connection failed, check network');
+      break;
+    default:
+      console.error('Unknown error:', error.code);
+  }
+}
+```
+
+### Session Expiration
+
+```javascript
+try {
+  await bot.buyItem('hat_123');
+} catch (error) {
+  if (error.code === BuyItemError.SessionExpired) {
+    console.log('Session expired, logging in again...');
+    await bot.login(email, password);
+    await bot.buyItem('hat_123');
+  }
+}
+```
+
+### Retry Logic
+
+```javascript
+async function redeemWithRetry(code, maxAttempts = 3) {
+  for (let i = 0; i < maxAttempts; i++) {
+    try {
+      return await bot.redeemCode(code);
+    } catch (error) {
+      if (error.code === RedeemCodeError.Ratelimited) {
+        console.log(`Rate limited, waiting... (attempt ${i + 1})`);
+        await new Promise(r => setTimeout(r, 5000));
+      } else {
+        throw error; // Don't retry on other errors
+      }
+    }
+  }
+  throw new Error('Max retry attempts reached');
+}
+```

@@ -1,0 +1,176 @@
+---
+title: Changelog
+description: Version history and release notes for yolkbot
+icon: clock-rotate-left
+---
+
+# Changelog
+
+Track the evolution of yolkbot through its version history. This page documents major releases, improvements, bug fixes, and breaking changes.
+
+## Current Version
+
+<Card title="Version 1.5.4" icon="tag" href="https://github.com/yolkop/yolkbot/releases">
+  Latest stable release - Released with npm provenance for enhanced security
+</Card>
+
+## Version History
+
+### 1.5.x Series
+
+The 1.5 series represents a major milestone with significant improvements to the core bot functionality, browser support, and API capabilities.
+
+#### v1.5.4 (Latest)
+- **Provenance**: Re-released with npm provenance for supply chain security
+- Enhanced package integrity verification
+
+#### v1.5.3
+- **Browser Improvements**: Removed wwws warning from browser build
+- Minor code quality improvements and nitpicks
+
+#### v1.5.2
+- **Organization Update**: Updated organization URL to yolkop
+- **Documentation**: Added Code of Conduct and Contributing guidelines
+- **Type Safety**: Improved typing for `API.idToken`
+
+#### v1.5.1
+- **API Change**: Renamed `bot.game.kotc.capturing` to `bot.game.kotc.teamCapturing` for clarity
+- Improved KOTC (King of the Coop) game mode support
+
+#### v1.5.0 - Major Release
+<Warning>
+  This version includes breaking changes. Review migration notes below.
+</Warning>
+
+**New Features**:
+- **Electron Support**: Full support for Electron applications
+- **Enhanced API**: Added more API parameters for authentication
+- **Module Exports**: Base module now exports all components for easier imports
+
+**Breaking Changes**:
+- Renamed `movement` event to `move` in `bot.emit`
+- Update your event listeners: `bot.on('movement', ...)` → `bot.on('move', ...)`
+
+**Improvements**:
+- General code cleanup and refactoring
+- Multiple bug fixes across core functionality
+- Updated wwws dependency
+- Fixed potential filesystem vulnerability (backported to 1.4.8)
+- Removed unnecessary ESLint rules
+- Fixed type definitions
+- Improved pathing algorithms based on CodeRabbit suggestions
+- Enhanced overall code quality
+
+**Dependencies**:
+- Updated to wwws ^1.1.6
+
+### 1.4.x Series
+
+#### v1.4.8
+- **Security**: Fixed potential future filesystem vulnerability
+- Backported critical security fix from 1.5.0
+
+## Release Channels
+
+<CardGroup cols={2}>
+  <Card title="Stable" icon="check-circle">
+    Production-ready releases published to npm
+    ```bash
+    bun add yolkbot
+    ```
+  </Card>
+  
+  <Card title="Alpha" icon="flask">
+    Experimental releases for testing new features
+    ```bash
+    ./alpha
+    ```
+  </Card>
+</CardGroup>
+
+## Migration Guide
+
+### Migrating to 1.5.x from 1.4.x
+
+<Steps>
+  <Step title="Update Event Listeners">
+    Rename `movement` events to `move`:
+    ```javascript
+    // Before (1.4.x)
+    bot.on('movement', (data) => {
+      console.log('Player moved');
+    });
+
+    // After (1.5.x)
+    bot.on('move', (data) => {
+      console.log('Player moved');
+    });
+    ```
+  </Step>
+
+  <Step title="Update KOTC References">
+    Update King of the Coop property names:
+    ```javascript
+    // Before (1.4.x)
+    const capturing = bot.game.kotc.capturing;
+
+    // After (1.5.1+)
+    const capturing = bot.game.kotc.teamCapturing;
+    ```
+  </Step>
+
+  <Step title="Update Dependencies">
+    ```bash
+    bun update yolkbot
+    ```
+  </Step>
+
+  <Step title="Test Thoroughly">
+    Test your bot in a development environment before deploying to production.
+  </Step>
+</Steps>
+
+## GitHub Releases
+
+For detailed release notes, changelogs, and downloadable assets, visit the [GitHub Releases page](https://github.com/yolkop/yolkbot/releases).
+
+<Card title="View All Releases" icon="github" href="https://github.com/yolkop/yolkbot/releases">
+  See complete release history with detailed changelogs, downloads, and release assets
+</Card>
+
+## Roadmap
+
+While yolkbot doesn't publish a formal public roadmap, development focuses on:
+
+- **Performance**: Continuous optimization for faster bot responses
+- **Reliability**: Ensuring bots work consistently with Shell Shockers updates
+- **Features**: Adding support for new game modes and capabilities
+- **Developer Experience**: Improving APIs, documentation, and tooling
+
+Feature requests and suggestions are welcome in the [Discord server](https://discord.gg/VUVRmmCXzN) or as [GitHub issues](https://github.com/yolkop/yolkbot/issues).
+
+## Stay Updated
+
+<CardGroup cols={3}>
+  <Card title="GitHub" icon="github" href="https://github.com/yolkop/yolkbot">
+    Watch the repository for release notifications
+  </Card>
+  
+  <Card title="Discord" icon="discord" href="https://discord.gg/VUVRmmCXzN">
+    Join the community for announcements
+  </Card>
+  
+  <Card title="npm" icon="npm" href="https://npmjs.com/package/yolkbot">
+    Check npm for latest published version
+  </Card>
+</CardGroup>
+
+## Versioning
+
+yolkbot follows semantic versioning:
+
+- **Major** (x.0.0): Breaking changes that require code updates
+- **Minor** (1.x.0): New features, backward compatible
+- **Patch** (1.5.x): Bug fixes, backward compatible
+
+Always review release notes when updating across major versions.

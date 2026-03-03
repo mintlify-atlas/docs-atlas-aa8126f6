@@ -1,0 +1,190 @@
+---
+title: "Installation"
+description: "Install yolkbot and set up your development environment"
+---
+
+## Install yolkbot
+
+Choose your preferred package manager to install yolkbot:
+
+<CodeGroup>
+
+```bash npm
+npm install yolkbot
+```
+
+```bash yarn
+yarn add yolkbot
+```
+
+```bash pnpm
+pnpm add yolkbot
+```
+
+</CodeGroup>
+
+## System requirements
+
+Before installing yolkbot, ensure your environment meets these requirements:
+
+- **Node.js**: Version 16.0.0 or higher (for Node.js usage)
+- **Modern browser**: Chrome, Firefox, Safari, or Edge (for browser usage)
+- **JavaScript**: ES6+ support with module imports
+
+<Info>
+  yolkbot uses ES modules (`import`/`export` syntax). Make sure your project is configured to support ES modules.
+</Info>
+
+## Environment setup
+
+yolkbot works in both Node.js and browser environments, but the setup differs slightly:
+
+### Node.js environment
+
+For Node.js projects, ensure your `package.json` includes the module type:
+
+```json package.json
+{
+  "type": "module",
+  "dependencies": {
+    "yolkbot": "^1.5.4"
+  }
+}
+```
+
+Then import yolkbot in your JavaScript files:
+
+```javascript index.js
+import { Bot } from 'yolkbot';
+
+const bot = new Bot();
+```
+
+### Browser environment
+
+For browser usage, yolkbot provides pre-built bundles:
+
+```html
+<!-- Global bundle -->
+<script src="node_modules/yolkbot/browser/build/global.js"></script>
+<script>
+  const bot = new yolkbot.Bot();
+</script>
+
+<!-- Or use module bundle -->
+<script type="module">
+  import { Bot } from './node_modules/yolkbot/browser/build/module.js';
+  const bot = new Bot();
+</script>
+```
+
+<Warning>
+  Proxy support is only available in Node.js environments. Browser environments cannot use the `proxy` parameter.
+</Warning>
+
+## Optional dependencies
+
+yolkbot has minimal dependencies by design:
+
+- **wwws** (v1.1.6+): WebSocket wrapper (automatically installed)
+
+All core features work out of the box with no additional setup required.
+
+## Verify installation
+
+Create a simple test file to verify your installation:
+
+<Steps>
+  <Step title="Create a test file">
+    Create `test.js` in your project directory:
+
+    ```javascript test.js
+    import { Bot } from 'yolkbot';
+
+    const bot = new Bot();
+    console.log('yolkbot is installed correctly!');
+    console.log('Bot instance:', bot.constructor.name);
+    ```
+  </Step>
+
+  <Step title="Run the test">
+    Execute the file:
+
+    ```bash
+    node test.js
+    ```
+  </Step>
+
+  <Step title="Verify output">
+    You should see:
+
+    ```
+    yolkbot is installed correctly!
+    Bot instance: Bot
+    ```
+  </Step>
+</Steps>
+
+<Tip>
+  If you see this output, you're ready to build your first bot! Continue to the [Quickstart guide](/quickstart).
+</Tip>
+
+## Using specific exports
+
+yolkbot provides granular exports for tree-shaking and optimization:
+
+```javascript
+// Import specific modules
+import { Bot } from 'yolkbot/bot';
+import { Intents, GameMode } from 'yolkbot/enums';
+import { Movement, GameMode as GMConst } from 'yolkbot/constants';
+
+// Import API utilities
+import API from 'yolkbot/api';
+
+// Import dispatches
+import { ChatDispatch, FireDispatch } from 'yolkbot/dispatch';
+
+// Import pathfinding
+import { coords, validate } from 'yolkbot/wasm';
+```
+
+<Note>
+  Most users will only need to import from the main `yolkbot` package. Granular imports are useful for advanced use cases and bundle size optimization.
+</Note>
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="Error: Cannot use import statement outside a module">
+    Add `"type": "module"` to your `package.json` file, or rename your file from `.js` to `.mjs`.
+  </Accordion>
+
+  <Accordion title="Error: Cannot find module 'yolkbot'">
+    Make sure you've installed yolkbot:
+    ```bash
+    npm install yolkbot
+    ```
+    And verify it appears in your `node_modules` directory.
+  </Accordion>
+
+  <Accordion title="Proxy errors in browser">
+    Proxies are only supported in Node.js environments. Remove the `proxy` parameter when using yolkbot in the browser.
+  </Accordion>
+
+  <Accordion title="COSMETIC_DATA intent error in browser">
+    The `COSMETIC_DATA` intent requires additional data files that are only available in the Node.js bundle. This intent cannot be used in browser environments.
+  </Accordion>
+</AccordionGroup>
+
+## Next steps
+
+Now that yolkbot is installed, you're ready to create your first bot:
+
+<Card
+  title="Quickstart guide"
+  icon="rocket"
+  href="/quickstart"
+>
+  Build your first working bot in minutes
+</Card>

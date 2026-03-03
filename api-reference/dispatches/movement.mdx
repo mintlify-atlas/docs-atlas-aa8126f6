@@ -1,0 +1,254 @@
+---
+title: Movement Dispatches
+description: Control bot movement, rotation, and navigation
+---
+
+## MovementDispatch
+
+Control the bot's movement keys.
+
+```javascript
+new MovementDispatch(inputKeys)
+```
+
+<ParamField path="inputKeys" type="number | number[]" required>
+  Movement flags from the `Movement` constant. Can be a single value or array of values to combine.
+</ParamField>
+
+### Example
+
+```javascript
+import { MovementDispatch } from 'yolkbot';
+import { Movement } from 'yolkbot/constants';
+
+// Move forward
+bot.dispatch(new MovementDispatch(Movement.Forward));
+
+// Move forward and right
+bot.dispatch(new MovementDispatch([Movement.Forward, Movement.Right]));
+
+// Jump while moving forward
+bot.dispatch(new MovementDispatch([Movement.Forward, Movement.Jump]));
+
+// Stop moving
+bot.dispatch(new MovementDispatch(0));
+```
+
+### Movement Constants
+
+- `Movement.Forward` - Move forward
+- `Movement.Backward` - Move backward
+- `Movement.Left` - Strafe left
+- `Movement.Right` - Strafe right
+- `Movement.Jump` - Jump
+- `Movement.Crouch` - Crouch
+
+<Note>
+You cannot combine `Forward` with `Backward`, or `Left` with `Right`. These combinations will fail validation.
+</Note>
+
+---
+
+## LookAtDispatch
+
+Make the bot look at a specific player.
+
+```javascript
+new LookAtDispatch(idOrName)
+```
+
+<ParamField path="idOrName" type="string | number" required>
+  Player ID or name to look at
+</ParamField>
+
+### Example
+
+```javascript
+import { LookAtDispatch } from 'yolkbot';
+
+// Look at player by name
+bot.dispatch(new LookAtDispatch('EnemyPlayer'));
+
+// Look at player by ID
+bot.dispatch(new LookAtDispatch(12345));
+```
+
+<Note>
+Only works when the target player is alive and has a valid position.
+</Note>
+
+---
+
+## LookAtPosDispatch
+
+Make the bot look at a specific position.
+
+```javascript
+new LookAtPosDispatch(pos)
+```
+
+<ParamField path="pos" type="object" required>
+  Position object with `x`, `y`, `z` coordinates
+</ParamField>
+
+### Example
+
+```javascript
+import { LookAtPosDispatch } from 'yolkbot';
+
+// Look at a specific position
+bot.dispatch(new LookAtPosDispatch({ x: 10, y: 5, z: -3 }));
+
+// Look at where you died
+const deathPos = bot.me.position;
+bot.dispatch(new LookAtPosDispatch(deathPos));
+```
+
+---
+
+## GoToPlayerDispatch
+
+Navigate to a player using pathfinding.
+
+```javascript
+new GoToPlayerDispatch(idOrName)
+```
+
+<ParamField path="idOrName" type="string | number" required>
+  Player ID or name to navigate to
+</ParamField>
+
+### Example
+
+```javascript
+import { GoToPlayerDispatch } from 'yolkbot';
+
+// Go to a player by name
+bot.dispatch(new GoToPlayerDispatch('Teammate'));
+
+// Listen for pathfinding errors
+bot.on('pathfindError', (error) => {
+  console.log('Could not reach player:', error);
+});
+```
+
+<Warning>
+Requires the `Intents.PATHFINDING` intent to be enabled.
+</Warning>
+
+---
+
+## GoToAmmoDispatch
+
+Navigate to the nearest ammo pickup.
+
+```javascript
+new GoToAmmoDispatch()
+```
+
+### Example
+
+```javascript
+import { GoToAmmoDispatch } from 'yolkbot';
+
+// Go to nearest ammo when low
+if (bot.me.weapons[bot.me.activeGun].ammo.store < 20) {
+  bot.dispatch(new GoToAmmoDispatch());
+}
+```
+
+<Warning>
+Requires the `Intents.PATHFINDING` intent. Only works if ammo pickups exist on the map.
+</Warning>
+
+---
+
+## GoToGrenadeDispatch
+
+Navigate to the nearest grenade pickup.
+
+```javascript
+new GoToGrenadeDispatch()
+```
+
+### Example
+
+```javascript
+import { GoToGrenadeDispatch } from 'yolkbot';
+
+// Go to nearest grenade
+bot.dispatch(new GoToGrenadeDispatch());
+```
+
+<Warning>
+Requires the `Intents.PATHFINDING` intent. Only works if grenade pickups exist on the map.
+</Warning>
+
+---
+
+## GoToSpatulaDispatch
+
+Navigate to the spatula in Spatula mode.
+
+```javascript
+new GoToSpatulaDispatch()
+```
+
+### Example
+
+```javascript
+import { GoToSpatulaDispatch } from 'yolkbot';
+
+// Go to spatula if it exists
+if (bot.game.spatula && bot.game.spatula.coords) {
+  bot.dispatch(new GoToSpatulaDispatch());
+}
+```
+
+<Warning>
+Requires the `Intents.PATHFINDING` intent. Only works in Spatula game mode when spatula has spawned.
+</Warning>
+
+---
+
+## GoToCoopDispatch
+
+Navigate to the nearest KOTC (King of the Coop) zone.
+
+```javascript
+new GoToCoopDispatch()
+```
+
+### Example
+
+```javascript
+import { GoToCoopDispatch } from 'yolkbot';
+
+// Go to KOTC zone
+if (bot.game.kotc.zoneIdx) {
+  bot.dispatch(new GoToCoopDispatch());
+}
+```
+
+<Warning>
+Requires the `Intents.PATHFINDING` intent. Only works in KOTC game mode when a zone is active.
+</Warning>
+
+---
+
+## Pathfinding Events
+
+All `GoTo*` dispatches may emit pathfinding errors:
+
+```javascript
+bot.on('pathfindError', (error) => {
+  switch (error) {
+    case PathfindError.NoPathFound:
+      console.log('No path to destination');
+      break;
+    case PathfindError.PathTooShort:
+      console.log('Already at destination');
+      break;
+  }
+});
+```

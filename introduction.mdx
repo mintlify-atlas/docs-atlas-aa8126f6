@@ -1,0 +1,125 @@
+---
+title: "Introduction"
+description: "Build powerful Shell Shockers bots with yolkbot - a fast, reliable, and feature-rich automation library"
+---
+
+<img
+  className="block dark:hidden"
+  src="https://yolkbot.xyz/banners/light.png"
+  alt="yolkbot logo"
+/>
+<img
+  className="hidden dark:block"
+  src="https://yolkbot.xyz/banners/dark.png"
+  alt="yolkbot logo"
+/>
+
+## What is yolkbot?
+
+yolkbot is a fast, optimized, and easy-to-use Shell Shockers automation library. Built for both Node.js and browser environments, yolkbot provides everything you need to create sophisticated bots for the popular online game Shell Shockers.
+
+Whether you're building a simple bot that joins games or a complex AI with pathfinding and combat logic, yolkbot handles the low-level WebSocket communication, game state management, and protocol details so you can focus on bot behavior.
+
+<Note>
+  yolkbot is maintained with ❤️ by [1ust](https://github.com/villainsrule). Special thanks to [zastix](https://github.com/zastlx) for contributions & emotional support.
+</Note>
+
+## Key features
+
+<CardGroup cols={2}>
+  <Card title="Real-time game control" icon="gamepad">
+    Control bot movement, shooting, aiming, and all in-game actions through a simple API
+  </Card>
+  <Card title="WebSocket communication" icon="network-wired">
+    Built-in WebSocket handling with automatic reconnection and protocol management
+  </Card>
+  <Card title="WASM pathfinding" icon="route">
+    High-performance pathfinding with line-of-sight calculations and navigation
+  </Card>
+  <Card title="Cross-platform support" icon="globe">
+    Works seamlessly in both Node.js and browser environments
+  </Card>
+  <Card title="Event-driven architecture" icon="bolt">
+    React to game events with hooks and listeners for players, damage, chat, and more
+  </Card>
+  <Card title="Comprehensive constants" icon="database">
+    Access game data including weapons, maps, regions, challenges, and cosmetics
+  </Card>
+</CardGroup>
+
+## Quick example
+
+Create a bot that joins a game in just a few lines:
+
+```javascript
+import { Bot } from 'yolkbot';
+
+const bot = new Bot();
+
+await bot.loginAnonymously();
+const game = await bot.findPublicGame('us-east', 'ffa');
+await bot.join('MyBot', game);
+
+bot.on('gameJoined', () => {
+  console.log('Bot has joined the game!');
+  bot.emit('spawn');
+});
+```
+
+## Who is yolkbot for?
+
+<CardGroup cols={2}>
+  <Card title="Automation developers" icon="robot">
+    Build bots for testing, training, or entertainment purposes
+  </Card>
+  <Card title="Game researchers" icon="flask">
+    Study game mechanics, networking protocols, and multiplayer systems
+  </Card>
+  <Card title="JavaScript developers" icon="code">
+    Learn about WebSocket protocols, game state management, and event-driven programming
+  </Card>
+  <Card title="Shell Shockers enthusiasts" icon="egg">
+    Create custom tools and experiences for the Shell Shockers community
+  </Card>
+</CardGroup>
+
+## Get started
+
+<CardGroup cols={2}>
+  <Card
+    title="Installation"
+    icon="download"
+    href="/installation"
+  >
+    Install yolkbot and set up your development environment
+  </Card>
+  <Card
+    title="Quickstart"
+    icon="rocket"
+    href="/quickstart"
+  >
+    Create your first bot in minutes with our step-by-step guide
+  </Card>
+  <Card
+    title="API reference"
+    icon="book"
+    href="/api-reference/bot"
+  >
+    Explore the complete API documentation
+  </Card>
+  <Card
+    title="Guides"
+    icon="compass"
+    href="/guides/examples"
+  >
+    Learn advanced techniques and best practices
+  </Card>
+</CardGroup>
+
+## Community and support
+
+Need help or want to connect with other yolkbot users?
+
+- Join the [Discord server](https://discord.gg/VUVRmmCXzN)
+- Report issues on [GitHub](https://github.com/yolkop/yolkbot/issues)
+- Check out the [official website](https://yolkbot.xyz)

@@ -1,0 +1,417 @@
+---
+title: 'yolkws'
+description: 'Complete yolkws WebSocket class reference for yolkbot'
+---
+
+# yolkws Class
+
+Custom WebSocket wrapper for Shell Shockers connections with automatic retry and reconnection support.
+
+## Constructor
+
+```javascript
+import { yolkws } from 'yolkbot';
+
+const socket = new yolkws('wss://shellshock.io/matchmaker/', {
+  proxy: 'http://proxy.example.com:8080',
+  errorLogger: (message) => console.error(message)
+});
+```
+
+### Parameters
+
+<ParamField path="url" type="string" required>
+  WebSocket URL to connect to
+</ParamField>
+
+<ParamField path="params" type="object">
+  Configuration options
+  
+  <ParamField path="proxy" type="string">
+    Proxy URL for connection (Node.js only, not available in browser)
+  </ParamField>
+  
+  <ParamField path="errorLogger" type="function">
+    Custom error logging function
+  </ParamField>
+</ParamField>
+
+## Methods
+
+### tryConnect()
+
+Attempt to connect to the WebSocket server with automatic retry.
+
+```javascript
+const socket = new yolkws('wss://shellshock.io/services/');
+
+const didConnect = await socket.tryConnect();
+
+if (didConnect) {
+  console.log('Connected successfully!');
+} else {
+  console.log('Failed to connect after 5 attempts');
+}
+```
+
+<ParamField path="tries" type="number" default="1">
+  Current attempt number (used internally for recursion)
+</ParamField>
+
+**Returns:** `Promise<boolean>` - Whether connection was successful
+
+**Behavior:**
+- Automatically retries up to 5 times on failure
+- Waits for connection timeout before retrying
+- Returns `true` on successful connection
+- Returns `false` after 5 failed attempts
+
+### send()
+
+Send data through the WebSocket.
+
+```javascript
+socket.send(JSON.stringify({ command: 'regionList' }));
+
+// Binary data
+socket.send(arrayBuffer);
+```
+
+<ParamField path="data" type="string | ArrayBuffer" required>
+  Data to send (string or binary)
+</ParamField>
+
+**Returns:** `void`
+
+### close()
+
+Close the WebSocket connection.
+
+```javascript
+socket.close();
+
+// With close code
+socket.close(1000);
+```
+
+<ParamField path="data" type="number">
+  WebSocket close code
+</ParamField>
+
+**Behavior:**
+- Disables `autoReconnect` automatically
+- Terminates connection immediately (Node.js)
+- Calls standard `close()` in browser environments
+
+## Properties
+
+<ParamField path="connected" type="boolean" default="false">
+  Whether the WebSocket is currently connected
+</ParamField>
+
+<ParamField path="autoReconnect" type="boolean" default="false">
+  Whether to automatically reconnect on connection loss. Set to `true` for persistent connections like matchmaker.
+</ParamField>
+
+<ParamField path="connectionTimeout" type="number" default="5000">
+  Connection timeout in milliseconds before retry
+</ParamField>
+
+<ParamField path="url" type="string">
+  WebSocket URL
+</ParamField>
+
+<ParamField path="proxy" type="string">
+  Proxy URL (Node.js only)
+</ParamField>
+
+<ParamField path="binaryType" type="string">
+  WebSocket binary type ('blob' or 'arraybuffer'). Set before calling `tryConnect()`.
+</ParamField>
+
+<ParamField path="socket" type="WebSocket">
+  Underlying WebSocket instance (available after `tryConnect()`)
+</ParamField>
+
+<ParamField path="errorLogger" type="function">
+  Error logging function
+</ParamField>
+
+## Event Handlers
+
+### onopen
+
+Called when the WebSocket connection is established.
+
+```javascript
+socket.onopen = () => {
+  console.log('Connection opened!');
+};
+
+await socket.tryConnect();
+```
+
+**Type:** `() => void`
+
+### onmessage
+
+Called when a message is received.
+
+```javascript
+socket.onmessage = (event) => {
+  console.log('Received:', event.data);
+  
+  // JSON data
+  const data = JSON.parse(event.data);
+  console.log('Command:', data.command);
+};
+```
+
+**Type:** `(event: MessageEvent) => void`
+
+**Parameters:**
+- `event.data` - Message data (string or binary)
+- `event.type` - Event type ('message')
+
+### onclose
+
+Called when the connection is closed.
+
+```javascript
+socket.onclose = (event) => {
+  console.log('Connection closed:', event.code, event.reason);
+};
+```
+
+**Type:** `(event: CloseEvent) => void`
+
+**Parameters:**
+- `event.code` - Close code (1000 = normal)
+- `event.reason` - Close reason string
+- `event.wasClean` - Whether close was clean
+
+**Note:** Not called if `autoReconnect` is `true` (reconnects automatically instead)
+
+### onerror
+
+Called when a WebSocket error occurs.
+
+```javascript
+socket.onerror = (error) => {
+  console.error('Socket error:', error);
+};
+```
+
+**Type:** `(event: Event) => void`
+
+### onBeforeConnect
+
+Internal hook called before connection attempt. Used internally by yolkbot.
+
+```javascript
+socket.onBeforeConnect = () => {
+  // Setup handlers before connection
+  socket.onmessage = (e) => console.log(e.data);
+};
+```
+
+**Type:** `() => void`
+
+## Examples
+
+### Basic Connection
+
+```javascript
+import { yolkws } from 'yolkbot';
+
+const socket = new yolkws('wss://shellshock.io/services/');
+
+socket.onopen = () => {
+  console.log('Connected!');
+};
+
+socket.onmessage = (e) => {
+  const data = JSON.parse(e.data);
+  console.log('Received:', data);
+};
+
+socket.onclose = (e) => {
+  console.log('Closed:', e.code);
+};
+
+const connected = await socket.tryConnect();
+
+if (connected) {
+  socket.send(JSON.stringify({ cmd: 'checkBalance' }));
+}
+```
+
+### Matchmaker Connection with Auto-Reconnect
+
+```javascript
+const matchmaker = new yolkws('wss://shellshock.io/matchmaker/');
+matchmaker.autoReconnect = true;
+
+const didConnect = await matchmaker.tryConnect();
+
+if (!didConnect) {
+  console.error('Failed to connect to matchmaker');
+  process.exit(1);
+}
+
+matchmaker.onmessage = (e) => {
+  const data = JSON.parse(e.data);
+  
+  if (data.command === 'regionList') {
+    console.log('Regions:', data.regionList);
+  }
+};
+
+matchmaker.send(JSON.stringify({ command: 'regionList' }));
+```
+
+### Game Connection with Binary Data
+
+```javascript
+const gameSocket = new yolkws('wss://na-1.shellshock.io/game/abc123');
+gameSocket.binaryType = 'arraybuffer';
+gameSocket.connectionTimeout = 10000; // 10 seconds
+
+gameSocket.onmessage = (e) => {
+  if (e.data instanceof ArrayBuffer) {
+    // Handle binary game packets
+    const view = new DataView(e.data);
+    const command = view.getUint8(0);
+    console.log('Packet command:', command);
+  }
+};
+
+const connected = await gameSocket.tryConnect();
+
+if (connected) {
+  console.log('Connected to game server!');
+}
+```
+
+### With Proxy (Node.js)
+
+```javascript
+import { yolkws } from 'yolkbot';
+
+const socket = new yolkws('wss://shellshock.io/services/', {
+  proxy: 'http://proxy.example.com:8080'
+});
+
+const connected = await socket.tryConnect();
+```
+
+### Request-Response Pattern
+
+```javascript
+const socket = new yolkws('wss://shellshock.io/services/');
+
+const connected = await socket.tryConnect();
+if (!connected) throw new Error('Connection failed');
+
+const response = await new Promise((resolve) => {
+  socket.onmessage = (e) => {
+    const data = JSON.parse(e.data);
+    resolve(data);
+    socket.close();
+  };
+  
+  socket.send(JSON.stringify({
+    cmd: 'checkBalance',
+    firebaseId: 'firebase-id',
+    sessionId: 'session-id'
+  }));
+});
+
+console.log('Balance:', response.currentBalance);
+```
+
+### Error Handling
+
+```javascript
+const socket = new yolkws('wss://shellshock.io/matchmaker/', {
+  errorLogger: (msg, error) => {
+    console.error('[SOCKET ERROR]', msg, error);
+  }
+});
+
+socket.onerror = (error) => {
+  console.error('WebSocket error occurred:', error);
+};
+
+socket.onclose = (e) => {
+  if (e.code !== 1000) {
+    console.error('Abnormal close:', e.code, e.reason);
+  }
+};
+
+const connected = await socket.tryConnect();
+
+if (!connected) {
+  console.error('All connection attempts failed');
+}
+```
+
+### Multiple Retry Handling
+
+```javascript
+const socket = new yolkws('wss://unreliable-server.example.com/');
+
+let attempt = 0;
+
+const originalLogger = socket.errorLogger;
+socket.errorLogger = (msg, error) => {
+  attempt++;
+  console.log(`Attempt ${attempt}/5 failed:`, msg);
+  originalLogger(msg, error);
+};
+
+const connected = await socket.tryConnect();
+
+if (connected) {
+  console.log(`Connected on attempt ${attempt + 1}`);
+} else {
+  console.log('Failed after 5 attempts');
+}
+```
+
+## Connection Flow
+
+1. **tryConnect()** called
+2. WebSocket created with URL and proxy (if provided)
+3. Connection timeout timer started
+4. **onBeforeConnect()** called (if set)
+5. Wait for connection:
+   - Success: Clear timeout, set `connected = true`, call **onopen()**, attach handlers, return `true`
+   - Timeout: Close socket, retry (up to 5 times)
+   - Error: Log error, retry (up to 5 times)
+6. If all retries fail: return `false`
+
+## Auto-Reconnect Flow
+
+When `autoReconnect = true`:
+
+1. Connection closes
+2. Set `connected = false`
+3. Wait 250ms
+4. Call **tryConnect()** automatically
+5. If reconnection fails after 5 attempts:
+   - Call **onclose()**
+   - Log error message
+
+## Browser vs Node.js
+
+**Browser:**
+- Uses native `WebSocket` API
+- No proxy support
+- Standard close() method
+
+**Node.js:**
+- Uses `ws` library (via globals)
+- Proxy support via proxy parameter
+- Uses `terminate()` for immediate close
+- Custom headers included in connection

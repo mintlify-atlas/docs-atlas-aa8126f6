@@ -1,0 +1,117 @@
+---
+title: Dispatches Overview
+description: Game actions that bots can perform in Shell Shockers
+---
+
+## What are Dispatches?
+
+Dispatches are game actions that your bot can perform. Each dispatch represents a specific action like moving, shooting, chatting, or changing settings. They're the primary way your bot interacts with the game.
+
+## How to Use Dispatches
+
+Dispatches are used with the `Bot.dispatch()` method:
+
+```javascript
+import { Bot, MovementDispatch, FireDispatch } from 'yolkbot';
+import { Movement } from 'yolkbot/constants';
+
+const bot = new Bot();
+
+// Move forward
+bot.dispatch(new MovementDispatch(Movement.Forward));
+
+// Fire weapon
+bot.dispatch(new FireDispatch(1));
+```
+
+## Dispatch Lifecycle
+
+Every dispatch goes through three checks before execution:
+
+1. **Validate** - Checks if the parameters are valid
+2. **Check** - Checks if the bot's current state allows this action
+3. **Execute** - Performs the action
+
+If validation or check fails, the dispatch won't execute.
+
+## Available Dispatches
+
+Dispatches are organized into three categories:
+
+### Movement
+
+- `MovementDispatch` - Control bot movement (forward, backward, left, right, jump, crouch)
+- `LookAtDispatch` - Look at a player
+- `LookAtPosDispatch` - Look at a position
+- `GoToPlayerDispatch` - Navigate to a player
+- `GoToAmmoDispatch` - Navigate to nearest ammo
+- `GoToGrenadeDispatch` - Navigate to nearest grenade
+- `GoToSpatulaDispatch` - Navigate to the spatula
+- `GoToCoopDispatch` - Navigate to KOTC zone
+
+### Combat
+
+- `FireDispatch` - Fire weapon
+- `MeleeDispatch` - Use melee attack
+- `ReloadDispatch` - Reload weapon
+- `ThrowGrenadeDispatch` - Throw grenade
+- `SwapWeaponDispatch` - Switch weapons
+
+### Interaction
+
+- `ChatDispatch` - Send chat messages
+- `SpawnDispatch` - Respawn after death
+- `PauseDispatch` - Leave the game
+- `SwitchTeamDispatch` - Switch teams
+- `SaveLoadoutDispatch` - Change loadout
+- `GameOptionsDispatch` - Modify game options (host only)
+- `ResetGameDispatch` - Reset the game (host only)
+- `BanPlayerDispatch` - Ban a player (admin only)
+- `BootPlayerDispatch` - Kick a player (host only)
+- `ReportPlayerDispatch` - Report a player
+
+## General Patterns
+
+### Chaining Actions
+
+You can dispatch multiple actions in sequence:
+
+```javascript
+// Look at a player and fire
+bot.dispatch(new LookAtDispatch('PlayerName'));
+bot.dispatch(new FireDispatch(3));
+```
+
+### Conditional Dispatches
+
+Check bot state before dispatching:
+
+```javascript
+if (bot.me.playing && bot.me.weapons[bot.me.activeGun].ammo.rounds < 5) {
+  bot.dispatch(new ReloadDispatch());
+}
+```
+
+### Error Handling
+
+Listen for pathfinding errors:
+
+```javascript
+bot.on('pathfindError', (error) => {
+  console.log('Pathfinding failed:', error);
+});
+```
+
+## Next Steps
+
+<CardGroup cols={3}>
+  <Card title="Movement" icon="person-walking" href="/api-reference/dispatches/movement">
+    Control bot movement and navigation
+  </Card>
+  <Card title="Combat" icon="gun" href="/api-reference/dispatches/combat">
+    Handle weapons and combat actions
+  </Card>
+  <Card title="Interaction" icon="comments" href="/api-reference/dispatches/interaction">
+    Chat, spawn, and game management
+  </Card>
+</CardGroup>

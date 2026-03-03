@@ -1,0 +1,176 @@
+---
+title: Contributing
+description: Learn how to contribute to yolkbot and help make it even better
+icon: code-pull-request
+---
+
+# Contributing to yolkbot
+
+We welcome contributions from the community to help improve yolkbot! Whether you're fixing bugs, adding new features, or improving the developer experience, your contributions are valuable.
+
+## Before You Start
+
+<Warning>
+  Please consult the maintainer before starting work on significant changes. Open an issue or contact directly to discuss your proposed changes. This helps prevent wasted effort if your vision differs from the project's direction.
+</Warning>
+
+## Project Structure
+
+The yolkbot codebase is organized into several key directories:
+
+```
+src/
+├── api.js              # API client for Shell Shockers authentication
+├── bot.js              # Main bot implementation
+├── socket.js           # WebSocket connection handling
+├── enums.js            # Game enumerations and constants
+├── util.js             # Utility functions
+├── bot/                # Bot-related classes
+│   └── GamePlayer.js   # Player representation
+├── comm/               # Communication layer
+│   ├── CommIn.js       # Incoming message handler
+│   └── CommOut.js      # Outgoing message handler
+├── constants/          # Game constants and data
+│   ├── guns.js         # Weapon definitions
+│   ├── maps.js         # Map data
+│   ├── items.js        # Item definitions
+│   └── challenges.js   # Challenge data
+├── dispatches/         # Event dispatchers
+├── packets/            # Packet definitions
+├── pathing/            # Pathfinding algorithms
+├── types/              # TypeScript type definitions
+└── wasm/               # WebAssembly modules
+
+browser/                # Browser-specific builds
+build/                  # Build scripts
+```
+
+## Getting Started
+
+<Steps>
+  <Step title="Fork the Repository">
+    Create your own fork of the yolkbot repository on GitHub.
+  </Step>
+
+  <Step title="Clone Your Fork">
+    ```bash
+    git clone https://github.com/YOUR_USERNAME/yolkbot.git
+    cd yolkbot
+    ```
+  </Step>
+
+  <Step title="Install Dependencies">
+    yolkbot uses [Bun](https://bun.sh) as its runtime and package manager:
+    ```bash
+    bun install
+    ```
+  </Step>
+
+  <Step title="Create a Feature Branch">
+    ```bash
+    git checkout -b feature/your-feature-name
+    ```
+  </Step>
+</Steps>
+
+## Development Workflow
+
+### Making Changes
+
+1. **Write Your Code**: Make your changes in your feature branch
+2. **Follow the Style**: ESLint will enforce code style. Run the linter:
+   ```bash
+   bun lint --fix
+   ```
+3. **Fix Remaining Issues**: You are responsible for fixing any linting errors that can't be auto-fixed
+4. **Test Your Code**: Thoroughly test your changes to ensure they work as expected
+
+### Code Quality Standards
+
+<Warning>
+  **Important**: Do not use AI to "vibe" an entire PR. While AI can be useful for tab completions and boilerplating, having AI write most of a PR is not acceptable. It's faster for the maintainer to write the code themselves than to review and fix AI-generated code.
+</Warning>
+
+- Write clean, readable code
+- Add comments for complex logic
+- Ensure backward compatibility when possible
+- Update documentation if you change APIs
+
+### Testing
+
+While yolkbot doesn't have a formal test suite yet, you should:
+
+- Test your bot connects to Shell Shockers successfully
+- Verify all features you modified still work
+- Test edge cases and error conditions
+- Run your code in both Node.js and browser environments if applicable
+
+## Submitting Changes
+
+<Steps>
+  <Step title="Commit Your Changes">
+    Write clear, descriptive commit messages:
+    ```bash
+    git add .
+    git commit -m "feat: add new pathfinding algorithm"
+    ```
+  </Step>
+
+  <Step title="Push to Your Fork">
+    ```bash
+    git push origin feature/your-feature-name
+    ```
+  </Step>
+
+  <Step title="Open a Pull Request">
+    Create a PR against the default branch of the main repository.
+  </Step>
+
+  <Step title="Describe Your Changes">
+    Include in your PR description:
+    - What changes you made
+    - Why these changes should be merged
+    - Any breaking changes or migration notes
+    - Screenshots or examples if applicable
+  </Step>
+</Steps>
+
+## Pull Request Review
+
+The maintainer will review your code and may:
+- Approve and merge your PR
+- Request changes or improvements
+- Provide feedback for future contributions
+
+Be patient and responsive to feedback. The review process helps maintain code quality.
+
+## Code of Conduct
+
+All contributors must follow the yolkbot Code of Conduct:
+
+- Be friendly, safe, and welcoming to all contributors
+- Be kind and courteous in all interactions
+- Respect differences of opinion
+- Keep unstructured critique to a minimum
+- No harassment, insults, or mean behavior
+- No spamming, trolling, or attention-stealing behavior
+
+**Reporting Issues**: If you experience or witness unacceptable behavior, contact the maintainer immediately on Discord.
+
+This Code of Conduct is adapted from the [Bun Code of Conduct](https://github.com/oven-sh/bun/blob/main/CODE_OF_CONDUCT.md).
+
+## Getting Help
+
+If you need help with your contribution:
+
+- Check the [documentation](https://yolkbot.xyz/docs)
+- Ask questions in the [Discord server](https://discord.gg/VUVRmmCXzN)
+- Open an issue on GitHub for bug reports or feature discussions
+
+## License
+
+By contributing to yolkbot, you agree to the terms in the [LICENSE.md](https://github.com/yolkop/yolkbot/blob/main/LICENSE.md). All contributions are automatically licensed under the yolkbot License v1.0, and you grant the copyright holder full rights to use, modify, and distribute your contributions.
+
+---
+
+Thank you for contributing to yolkbot! Your support helps make this project better for everyone.

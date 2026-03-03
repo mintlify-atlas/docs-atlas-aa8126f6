@@ -1,0 +1,261 @@
+---
+title: Combat Dispatches
+description: Fire weapons, reload, melee, and manage combat actions
+---
+
+## FireDispatch
+
+Fire the bot's active weapon.
+
+```javascript
+new FireDispatch(amount)
+```
+
+<ParamField path="amount" type="number" default="1">
+  Number of shots to fire (must be >= 1)
+</ParamField>
+
+### Example
+
+```javascript
+import { FireDispatch } from 'yolkbot';
+
+// Fire one shot
+bot.dispatch(new FireDispatch(1));
+
+// Fire three shots
+bot.dispatch(new FireDispatch(3));
+
+// Fire only if you have ammo
+const weapon = bot.me.weapons[bot.me.activeGun];
+if (weapon.ammo.rounds >= 3) {
+  bot.dispatch(new FireDispatch(3));
+}
+```
+
+<Note>
+Will only fire if the bot:
+- Is playing
+- Is not reloading
+- Is not swapping weapons
+- Is not using melee
+- Has enough ammo in the current magazine
+</Note>
+
+---
+
+## MeleeDispatch
+
+Perform a melee attack.
+
+```javascript
+new MeleeDispatch()
+```
+
+### Example
+
+```javascript
+import { MeleeDispatch } from 'yolkbot';
+
+// Melee attack
+bot.dispatch(new MeleeDispatch());
+
+// Melee when close to enemy
+const enemy = Object.values(bot.players).find(p => p.team !== bot.me.team);
+if (enemy) {
+  const distance = Math.hypot(
+    enemy.position.x - bot.me.position.x,
+    enemy.position.z - bot.me.position.z
+  );
+  
+  if (distance < 3) {
+    bot.dispatch(new MeleeDispatch());
+  }
+}
+```
+
+<Note>
+Melee attacks have a cooldown. The bot's state will be locked during the melee animation (approximately 567ms) plus weapon swap time.
+</Note>
+
+---
+
+## ReloadDispatch
+
+Reload the bot's active weapon.
+
+```javascript
+new ReloadDispatch()
+```
+
+### Example
+
+```javascript
+import { ReloadDispatch } from 'yolkbot';
+
+// Reload weapon
+bot.dispatch(new ReloadDispatch());
+
+// Auto reload when magazine is low
+const weapon = bot.me.weapons[bot.me.activeGun];
+if (weapon.ammo.rounds < weapon.ammo.capacity * 0.3) {
+  bot.dispatch(new ReloadDispatch());
+}
+
+// Listen for reload events
+bot.on('playerStartReload', (player, weapon) => {
+  console.log('Started reloading', weapon.name);
+});
+
+bot.on('playerEndReload', (player, weapon) => {
+  console.log('Finished reloading', weapon.name);
+});
+```
+
+<Note>
+Will only reload if:
+- Bot is playing
+- Not already reloading
+- Not swapping weapons or using melee
+- Magazine is not full
+- Reserve ammo is available
+</Note>
+
+---
+
+## ThrowGrenadeDispatch
+
+Throw a grenade with specified power.
+
+```javascript
+new ThrowGrenadeDispatch(power)
+```
+
+<ParamField path="power" type="number" default="1">
+  Throw power from 0 to 1 (0 = minimum throw, 1 = maximum throw)
+</ParamField>
+
+### Example
+
+```javascript
+import { ThrowGrenadeDispatch } from 'yolkbot';
+
+// Throw grenade at full power
+bot.dispatch(new ThrowGrenadeDispatch(1));
+
+// Throw grenade at half power
+bot.dispatch(new ThrowGrenadeDispatch(0.5));
+
+// Lob grenade weakly
+bot.dispatch(new ThrowGrenadeDispatch(0.2));
+```
+
+<Note>
+Power must be between 0 and 1. The dispatch will only work if the bot is playing and not currently reloading, swapping weapons, or using melee.
+</Note>
+
+---
+
+## SwapWeaponDispatch
+
+Switch between primary and secondary weapons.
+
+```javascript
+new SwapWeaponDispatch(manualWeapon)
+```
+
+<ParamField path="manualWeapon" type="number" optional>
+  Specific weapon to swap to (0 = primary, 1 = secondary). If omitted, toggles to the other weapon.
+</ParamField>
+
+### Example
+
+```javascript
+import { SwapWeaponDispatch } from 'yolkbot';
+
+// Toggle to other weapon
+bot.dispatch(new SwapWeaponDispatch());
+
+// Switch to primary weapon
+bot.dispatch(new SwapWeaponDispatch(0));
+
+// Switch to secondary weapon
+bot.dispatch(new SwapWeaponDispatch(1));
+
+// Switch to secondary when primary is out of ammo
+const primary = bot.me.weapons[0];
+if (primary.ammo.rounds === 0 && primary.ammo.store === 0) {
+  bot.dispatch(new SwapWeaponDispatch(1));
+}
+```
+
+<Note>
+Will only work if the bot is playing and not reloading, swapping weapons, or using melee.
+</Note>
+
+---
+
+## Combat State Management
+
+The bot's internal state tracks several combat-related flags:
+
+```javascript
+// Check if bot is in combat state
+if (!bot.state.reloading && !bot.state.swappingGun && !bot.state.usingMelee) {
+  // Bot can perform combat actions
+  bot.dispatch(new FireDispatch(1));
+}
+
+// Track shots fired
+console.log('Total shots fired:', bot.state.shotsFired);
+
+// Check weapon info
+const activeWeapon = bot.me.weapons[bot.me.activeGun];
+console.log('Ammo in mag:', activeWeapon.ammo.rounds);
+console.log('Ammo in reserve:', activeWeapon.ammo.store);
+console.log('Magazine capacity:', activeWeapon.ammo.capacity);
+```
+
+## Best Practices
+
+### Ammo Management
+
+```javascript
+function manageAmmo(bot) {
+  const weapon = bot.me.weapons[bot.me.activeGun];
+  
+  // Reload if magazine is empty
+  if (weapon.ammo.rounds === 0 && weapon.ammo.store > 0) {
+    bot.dispatch(new ReloadDispatch());
+    return;
+  }
+  
+  // Switch weapons if out of ammo
+  if (weapon.ammo.rounds === 0 && weapon.ammo.store === 0) {
+    bot.dispatch(new SwapWeaponDispatch());
+    return;
+  }
+}
+```
+
+### Combat Loop
+
+```javascript
+function combatLoop(bot, target) {
+  // Can't do anything while in these states
+  if (bot.state.reloading || bot.state.swappingGun || bot.state.usingMelee) {
+    return;
+  }
+  
+  // Look at target
+  bot.dispatch(new LookAtDispatch(target.name));
+  
+  // Fire if we have ammo
+  const weapon = bot.me.weapons[bot.me.activeGun];
+  if (weapon.ammo.rounds > 0) {
+    bot.dispatch(new FireDispatch(1));
+  } else if (weapon.ammo.store > 0) {
+    bot.dispatch(new ReloadDispatch());
+  }
+}
+```

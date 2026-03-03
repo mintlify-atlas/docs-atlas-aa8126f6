@@ -1,0 +1,334 @@
+---
+title: Bot Basics
+description: Understanding the Bot class lifecycle, creating instances, and core methods
+---
+
+## Overview
+
+The `Bot` class is the core of yolkbot. It manages the entire bot lifecycle from authentication to gameplay, handling game state, player tracking, and event emission.
+
+## Creating a Bot Instance
+
+The Bot constructor accepts an optional configuration object:
+
+```javascript Bot constructor signature from src/bot.js:103
+const bot = new Bot({
+  intents: [],           // Array of Intents flags
+  instance: 'shellshock.io',
+  protocol: 'wss',
+  proxy: '',            // Proxy URL (Node.js only)
+  connectionTimeout: 5000,
+  errorLogger: (...args) => console.error(...args)
+});
+```
+
+<Note>
+  Proxies are only available in Node.js environments. Browser bundles will throw an error if you pass a proxy parameter.
+</Note>
+
+## Constructor Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `intents` | `Array<number>` | `[]` | Intent flags that control bot features (see Intents) |
+| `instance` | `string` | `'shellshock.io'` | Game server instance hostname |
+| `protocol` | `string` | `'wss'` | WebSocket protocol (`'wss'` or `'ws'`) |
+| `proxy` | `string` | `''` | Proxy URL (Node.js only) |
+| `connectionTimeout` | `number` | `5000` | Connection timeout in milliseconds |
+| `errorLogger` | `function` | `console.error` | Custom error logging function |
+
+## Intents System
+
+yolkbot uses intents to control which features are enabled:
+
+```javascript Available intents from src/enums.js:56
+import { Intents } from 'yolkbot';
+
+const bot = new Bot({
+  intents: [
+    Intents.PATHFINDING,     // Enable pathfinding capabilities
+    Intents.PLAYER_HEALTH,   // Track player health regeneration
+    Intents.COSMETIC_DATA,   // Load cosmetic item data
+    Intents.CHALLENGES,      // Enable challenge tracking
+    Intents.BOT_STATS,       // Track bot statistics
+    Intents.PING,            // Monitor connection latency
+    Intents.NO_AFK_KICK,     // Prevent AFK kicks
+    Intents.RENEW_SESSION,   // Auto-renew session tokens
+    Intents.SIMULATION,      // Enable movement simulation (requires PATHFINDING)
+  ]
+});
+```
+
+<Warning>
+  The `SIMULATION` intent requires `PATHFINDING` to be enabled. The Bot constructor will throw an error if this dependency is not met.
+</Warning>
+
+## Bot Lifecycle
+
+### 1. Authentication
+
+Before joining a game, authenticate the bot:
+
+```javascript Login methods from src/bot.js:324-354
+// Login with credentials
+const result = await bot.login('email@example.com', 'password');
+
+// Create new account
+const result = await bot.createAccount('email@example.com', 'password');
+
+// Login anonymously (no account needed)
+const result = await bot.loginAnonymously();
+
+// Login with refresh token
+const result = await bot.loginWithRefreshToken(refreshToken);
+```
+
+All authentication methods return an object with:
+- `ok: boolean` - Whether login succeeded
+- `account` - Account data (if successful)
+- `error` - Error code (if failed)
+
+### 2. Finding a Game
+
+```javascript Game finding methods from src/bot.js:507-632
+// Find a public game
+const game = await bot.findPublicGame('na-1', 'ffa');
+
+// Create a private game
+const game = await bot.createPrivateGame('na-1', 'teams', 'Crackshot');
+
+if (!game.ok) {
+  console.error('Failed to find game:', game.error);
+}
+```
+
+### 3. Joining a Game
+
+```javascript Join method from src/bot.js:634
+// Join with game object
+const joinResult = await bot.join('BotName', game);
+
+// Join with game code
+const joinResult = await bot.join('BotName', 'ABCD1234');
+
+if (!joinResult.ok) {
+  console.error('Failed to join:', joinResult.error);
+}
+```
+
+### 4. Gameplay Loop
+
+Once joined, the bot enters the gameplay loop:
+
+```javascript Update loop from src/bot.js:821
+// Bot automatically calls update() every ~33ms
+// unless Intents.MANUAL_UPDATE is set
+
+bot.on('gameReady', () => {
+  console.log('Bot is in game!');
+});
+
+bot.on('tick', () => {
+  // Called every sync (every FramesBetweenSyncs)
+  // Use for actions that need precise timing
+});
+```
+
+### 5. Leaving a Game
+
+```javascript Leave method from src/bot.js:1393
+import { CloseCode } from 'yolkbot';
+
+// Leave to main menu (default)
+bot.leave();
+
+// Leave with specific close code
+bot.leave(CloseCode.mainMenu);
+```
+
+## Core State Management
+
+The Bot maintains several state objects:
+
+### `bot.state`
+
+Movement and control state:
+
+```javascript State object from src/bot.js:125
+bot.state = {
+  name: 'yolkbot',
+  weaponIdx: 0,
+  inGame: false,
+  chatLines: 0,
+  yaw: 0,              // Camera yaw (radians)
+  pitch: 0,            // Camera pitch (radians)
+  controlKeys: 0,      // Bitmask of Movement keys
+  onGround: 4,
+  dx: 0, dy: 0, dz: 0, // Velocity components
+  reloading: false,
+  swappingGun: false,
+  usingMelee: false,
+  stateIdx: 0,         // Frame index
+  serverStateIdx: 0,
+  shotsFired: 0,
+  buffer: []           // State buffer for syncs
+}
+```
+
+### `bot.me`
+
+The bot's player object (GamePlayer instance):
+
+```javascript
+bot.me = {
+  id: 0,
+  name: 'BotName',
+  team: 0,
+  playing: false,
+  position: { x: 0, y: 0, z: 0 },
+  hp: 100,
+  streak: 0,
+  weapons: [],
+  grenades: 1,
+  // ... more properties
+}
+```
+
+### `bot.players`
+
+Object mapping player IDs to GamePlayer instances:
+
+```javascript Player tracking from src/bot.js:156
+bot.players = {
+  0: GamePlayer { id: 0, name: 'Player1', ... },
+  1: GamePlayer { id: 1, name: 'Player2', ... },
+  // ...
+}
+```
+
+### `bot.game`
+
+Game state and configuration:
+
+```javascript Game state from src/bot.js:159
+bot.game = {
+  code: 'ABCD1234',
+  region: 'na-1',
+  socket: yolkws,
+  gameModeId: 0,
+  gameMode: 'ffa',
+  mapIdx: 0,
+  map: { name: 'Crackshot', ... },
+  isGameOwner: false,
+  isPrivate: true,
+  options: {
+    gravity: 1,
+    damage: 1,
+    healthRegen: 1,
+    locked: false,
+    weaponsDisabled: [false, false, ...]
+  },
+  collectibles: [[], []],  // [ammo, grenades]
+  teamScore: [0, 0, 0],
+  spatula: { coords: {...}, controlledBy: 0 },
+  kotc: { stage: 0, zoneIdx: 0, ... }
+}
+```
+
+### `bot.account`
+
+Account and authentication data:
+
+```javascript Account state from src/bot.js:230
+bot.account = {
+  id: 0,
+  firebaseId: '',
+  sessionId: '',
+  email: '',
+  eggBalance: 0,
+  vip: false,
+  emailVerified: false,
+  loadout: {
+    hatId: null,
+    meleeId: 0,
+    primaryId: [...],
+    secondaryId: [...],
+    // ...
+  },
+  ownedItemIds: [],
+  // ...
+}
+```
+
+## Core Methods
+
+### Dispatching Actions
+
+```javascript Dispatch method from src/bot.js:310
+import { MovementDispatch, FireDispatch } from 'yolkbot';
+
+// Queue a dispatch (waits for validation)
+bot.dispatch(new MovementDispatch(Movement.Forward));
+
+// Emit immediately (bypasses queue)
+bot.emit('move', Movement.Forward);
+```
+
+### Finding Targets
+
+```javascript Target methods from src/bot.js:1203-1225
+// Get closest enemy player
+const target = bot.getBestTarget();
+
+if (target) {
+  console.log(`Targeting ${target.name} at distance ${distance}`);
+}
+
+// Check line of sight (requires PATHFINDING intent)
+if (bot.canSee(target)) {
+  bot.emit('lookAt', target.id);
+  bot.emit('fire', true);
+}
+```
+
+### Update Loop
+
+```javascript Update method from src/bot.js:821
+// Called automatically every ~33ms
+// Or call manually if using Intents.MANUAL_UPDATE
+bot.update();
+```
+
+The update loop:
+1. Processes pathfinding if active
+2. Executes queued dispatches that pass validation
+3. Decrements chat cooldown
+4. Syncs movement state with server
+5. Simulates movement if `SIMULATION` intent is enabled
+6. Updates player health if `PLAYER_HEALTH` intent is enabled
+
+## Error Handling
+
+All async methods return objects with `ok` property:
+
+```javascript
+const result = await bot.login(email, password);
+
+if (!result.ok) {
+  console.error('Login failed:', result.error);
+  // result.error contains error code from LoginError enum
+} else {
+  console.log('Login successful!', result.account);
+}
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Connection Management" icon="network-wired" href="/concepts/connection-management">
+    Learn about yolkws, connection methods, and error handling
+  </Card>
+  <Card title="Event Handling" icon="bolt" href="/concepts/event-handling">
+    Master the event system and handle game events
+  </Card>
+</CardGroup>

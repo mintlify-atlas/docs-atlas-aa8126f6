@@ -1,0 +1,454 @@
+---
+title: 'Browser Usage'
+description: 'How to use yolkbot in the browser environment'
+---
+
+yolkbot can run directly in the browser, making it easy to create browser extensions, userscripts, or web-based bot interfaces.
+
+## Browser vs Node.js
+
+The browser build has some differences from the Node.js version:
+
+<AccordionGroup>
+  <Accordion title="Key Differences">
+    - **No Proxy Support**: Browser builds cannot use proxies
+    - **Global Namespace**: Exposed as `window.yolkbot`
+    - **No COSMETIC_DATA Intent**: Cosmetic data is not included to reduce bundle size
+    - **Web Crypto API**: Uses browser's native crypto instead of Node.js crypto
+    - **WebSocket**: Uses browser's native WebSocket API
+  </Accordion>
+  
+  <Accordion title="What Works the Same">
+    - All dispatches and bot commands
+    - Event system
+    - Pathfinding
+    - API calls
+    - Game joining and management
+  </Accordion>
+</AccordionGroup>
+
+## Installation
+
+### Using a Script Tag
+
+The simplest way to use yolkbot in the browser is via a script tag:
+
+```html
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Yolkbot Browser Example</title>
+</head>
+<body>
+  <h1>Yolkbot Browser Bot</h1>
+  <button id="start">Start Bot</button>
+  <div id="status">Not running</div>
+  
+  <!-- Include yolkbot -->
+  <script src="https://unpkg.com/yolkbot/browser/yolkbot.global.js"></script>
+  
+  <script>
+    // yolkbot is now available as window.yolkbot
+    console.log('Yolkbot loaded:', window.yolkbot);
+    
+    document.getElementById('start').addEventListener('click', async () => {
+      const bot = new yolkbot.Bot({
+        intents: [yolkbot.Enums.Intents.PATHFINDING]
+      });
+      
+      await bot.loginAnonymously();
+      const game = await bot.findPublicGame('us-east', 'ffa');
+      await bot.join('BrowserBot', game);
+      
+      bot.on('ready', () => {
+        document.getElementById('status').textContent = 'Connected!';
+        bot.emit('spawn');
+      });
+      
+      bot.on('spawn', () => {
+        document.getElementById('status').textContent = 'Spawned!';
+      });
+      
+      setInterval(() => bot.update(), 1000 / 30);
+    });
+  </script>
+</body>
+</html>
+```
+
+### Using a Build System
+
+If you're using a bundler like webpack or vite:
+
+```javascript
+import yolkbot from 'yolkbot/browser';
+
+const bot = new yolkbot.Bot();
+```
+
+## Browser Global API
+
+When using the browser build via script tag, everything is exposed under `window.yolkbot`:
+
+```javascript
+// Main exports
+window.yolkbot.Bot              // Bot class
+window.yolkbot.API              // API class
+window.yolkbot.Enums            // All enums
+window.yolkbot.yolkws           // WebSocket wrapper
+window.yolkbot.util             // Utility functions
+
+// Classes
+window.yolkbot.GamePlayer       // Player class
+
+// Communication
+window.yolkbot.Comm.CommIn      // Incoming packet handler
+window.yolkbot.Comm.CommOut     // Outgoing packet builder
+
+// Constants
+window.yolkbot.Constants        // All constants
+window.yolkbot.Challenges       // Challenge data
+window.yolkbot.CloseCode        // WebSocket close codes
+window.yolkbot.CommCode         // Packet type codes
+window.yolkbot.Guns             // Gun statistics
+window.yolkbot.Maps             // Map data
+window.yolkbot.Regions          // Region data
+
+// Dispatches
+window.yolkbot.Dispatches       // All dispatch classes
+
+// WASM utilities
+window.yolkbot.WASM             // WASM helper functions
+```
+
+<Info>
+The browser build structure is defined in `/source/browser/globalEntry.js:25-48`.
+</Info>
+
+## Browser-Specific Examples
+
+### Userscript Example
+
+Create a Tampermonkey/Greasemonkey userscript:
+
+```javascript
+// ==UserScript==
+// @name         Shell Shockers Bot
+// @namespace    http://tampermonkey.net/
+// @version      1.0
+// @description  Automated Shell Shockers bot
+// @match        https://shellshock.io/*
+// @require      https://unpkg.com/yolkbot/browser/yolkbot.global.js
+// @grant        none
+// ==/UserScript==
+
+(function() {
+    'use strict';
+    
+    const { Bot, Dispatches, Enums } = window.yolkbot;
+    
+    // Create bot with required intents
+    const bot = new Bot({
+        intents: [
+            Enums.Intents.PATHFINDING,
+            Enums.Intents.PLAYER_HEALTH
+        ]
+    });
+    
+    // Add UI controls
+    const panel = document.createElement('div');
+    panel.style.cssText = 'position:fixed;top:10px;right:10px;background:rgba(0,0,0,0.8);color:white;padding:10px;z-index:9999;';
+    panel.innerHTML = `
+        <h3>Bot Controls</h3>
+        <button id="bot-start">Start</button>
+        <button id="bot-stop">Stop</button>
+        <div id="bot-status">Ready</div>
+    `;
+    document.body.appendChild(panel);
+    
+    let updateInterval;
+    
+    document.getElementById('bot-start').addEventListener('click', async () => {
+        document.getElementById('bot-status').textContent = 'Logging in...';
+        
+        await bot.loginAnonymously();
+        const game = await bot.findPublicGame('us-east', 'ffa');
+        await bot.join('UserscriptBot', game);
+        
+        bot.on('ready', () => {
+            document.getElementById('bot-status').textContent = 'Connected';
+            bot.emit('spawn');
+        });
+        
+        bot.on('spawn', () => {
+            document.getElementById('bot-status').textContent = 'Playing';
+        });
+        
+        bot.on('tick', () => {
+            if (!bot.me.playing) return;
+            
+            const target = bot.getBestTarget();
+            if (target) {
+                bot.dispatch(new Dispatches.LookAtDispatch(target.id));
+                if (bot.canSee(target)) {
+                    bot.dispatch(new Dispatches.FireDispatch(1));
+                }
+            }
+        });
+        
+        updateInterval = setInterval(() => bot.update(), 1000 / 30);
+    });
+    
+    document.getElementById('bot-stop').addEventListener('click', () => {
+        clearInterval(updateInterval);
+        bot.leave();
+        document.getElementById('bot-status').textContent = 'Stopped';
+    });
+})();
+```
+
+### Browser Extension Example
+
+For a Chrome/Firefox extension:
+
+**manifest.json**
+```json
+{
+  "manifest_version": 3,
+  "name": "Shell Shockers Bot Extension",
+  "version": "1.0",
+  "permissions": ["storage"],
+  "action": {
+    "default_popup": "popup.html"
+  },
+  "content_scripts": [
+    {
+      "matches": ["https://shellshock.io/*"],
+      "js": ["yolkbot.global.js", "content.js"]
+    }
+  ]
+}
+```
+
+**content.js**
+```javascript
+const { Bot, Dispatches, Enums } = window.yolkbot;
+
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+    if (message.action === 'startBot') {
+        const bot = new Bot({
+            intents: [Enums.Intents.PATHFINDING]
+        });
+        
+        (async () => {
+            await bot.loginAnonymously();
+            const game = await bot.findPublicGame(message.region, message.mode);
+            await bot.join(message.name, game);
+            
+            bot.on('ready', () => {
+                bot.emit('spawn');
+                sendResponse({ status: 'connected' });
+            });
+            
+            setInterval(() => bot.update(), 1000 / 30);
+        })();
+        
+        return true; // Async response
+    }
+});
+```
+
+## Browser Limitations
+
+### No Proxy Support
+
+Attempting to use proxies in the browser will throw an error:
+
+```javascript
+// This will throw an error in the browser
+const bot = new Bot({
+    proxy: 'http://proxy.example.com:8080' // ❌ Not supported
+});
+```
+
+From `/source/src/bot.js:104-105`:
+```javascript
+if (params.proxy && typeof process === 'undefined')
+    throw new Error('proxies do not work in this environment');
+```
+
+### No Cosmetic Data Intent
+
+The `COSMETIC_DATA` intent is not available in browser builds:
+
+```javascript
+// This will throw an error in the browser
+const bot = new Bot({
+    intents: [Enums.Intents.COSMETIC_DATA] // ❌ Not supported
+});
+```
+
+From `/source/src/bot.js:109-112`:
+```javascript
+if (this.intents.includes(Intents.COSMETIC_DATA)) {
+    const ballCap = findItemById(1001);
+    if (!ballCap) throw new Error('you cannot use the COSMETIC_DATA intent inside of the browser bundles');
+}
+```
+
+<Warning>
+These limitations are by design to keep the browser bundle size small and to work within browser security constraints.
+</Warning>
+
+## Complete Browser Example
+
+Here's a complete HTML page with a functional bot:
+
+```html
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Yolkbot Browser Demo</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+        }
+        .controls { margin: 20px 0; }
+        button {
+            padding: 10px 20px;
+            margin: 5px;
+            cursor: pointer;
+        }
+        #log {
+            background: #f0f0f0;
+            padding: 10px;
+            height: 300px;
+            overflow-y: scroll;
+            font-family: monospace;
+        }
+        .status {
+            padding: 10px;
+            margin: 10px 0;
+            background: #e0e0e0;
+        }
+    </style>
+</head>
+<body>
+    <h1>Yolkbot Browser Demo</h1>
+    
+    <div class="status">
+        <strong>Status:</strong> <span id="status">Not started</span><br>
+        <strong>HP:</strong> <span id="hp">-</span><br>
+        <strong>Position:</strong> <span id="position">-</span>
+    </div>
+    
+    <div class="controls">
+        <button id="start">Start Bot</button>
+        <button id="stop">Stop Bot</button>
+        <button id="clear">Clear Log</button>
+    </div>
+    
+    <div id="log"></div>
+    
+    <script src="https://unpkg.com/yolkbot/browser/yolkbot.global.js"></script>
+    <script>
+        const { Bot, Dispatches, Enums } = window.yolkbot;
+        
+        let bot;
+        let updateInterval;
+        
+        function log(message) {
+            const logDiv = document.getElementById('log');
+            const time = new Date().toLocaleTimeString();
+            logDiv.innerHTML += `[${time}] ${message}<br>`;
+            logDiv.scrollTop = logDiv.scrollHeight;
+        }
+        
+        function updateStatus(text) {
+            document.getElementById('status').textContent = text;
+        }
+        
+        document.getElementById('start').addEventListener('click', async () => {
+            bot = new Bot({
+                intents: [
+                    Enums.Intents.PATHFINDING,
+                    Enums.Intents.PLAYER_HEALTH
+                ]
+            });
+            
+            updateStatus('Logging in...');
+            log('Logging in anonymously...');
+            
+            await bot.loginAnonymously();
+            log('Finding public game...');
+            
+            const game = await bot.findPublicGame('us-east', 'ffa');
+            log(`Found game: ${game.id}`);
+            
+            await bot.join('BrowserBot', game);
+            
+            bot.on('ready', () => {
+                updateStatus('Connected');
+                log('Connected to game!');
+                bot.emit('spawn');
+            });
+            
+            bot.on('spawn', () => {
+                updateStatus('Playing');
+                log('Spawned in game!');
+            });
+            
+            bot.on('die', () => {
+                log('Died! Respawning...');
+                setTimeout(() => bot.emit('spawn'), 6000);
+            });
+            
+            bot.on('kill', (killer, victim) => {
+                if (killer.id === bot.me.id) {
+                    log(`Killed ${victim.name}!`);
+                }
+            });
+            
+            bot.on('tick', () => {
+                if (!bot.me.playing) return;
+                
+                // Update UI
+                document.getElementById('hp').textContent = Math.floor(bot.me.hp);
+                document.getElementById('position').textContent = 
+                    `${bot.me.position.x.toFixed(1)}, ${bot.me.position.y.toFixed(1)}, ${bot.me.position.z.toFixed(1)}`;
+                
+                // Combat logic
+                const target = bot.getBestTarget();
+                if (target) {
+                    bot.dispatch(new Dispatches.LookAtDispatch(target.id));
+                    if (bot.canSee(target)) {
+                        bot.dispatch(new Dispatches.FireDispatch(1));
+                    }
+                }
+            });
+            
+            updateInterval = setInterval(() => bot.update(), 1000 / 30);
+        });
+        
+        document.getElementById('stop').addEventListener('click', () => {
+            if (updateInterval) clearInterval(updateInterval);
+            if (bot) bot.leave();
+            updateStatus('Stopped');
+            log('Bot stopped');
+        });
+        
+        document.getElementById('clear').addEventListener('click', () => {
+            document.getElementById('log').innerHTML = '';
+        });
+    </script>
+</body>
+</html>
+```
+
+<Check>
+This complete example creates a functional browser-based bot with a UI showing real-time status updates.
+</Check>

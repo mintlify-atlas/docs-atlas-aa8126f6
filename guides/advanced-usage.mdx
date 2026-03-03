@@ -1,0 +1,624 @@
+---
+title: 'Advanced Usage'
+description: 'Advanced features including WASM utilities, custom dispatches, and performance optimization'
+---
+
+This guide covers advanced yolkbot features for experienced users who want more control over bot behavior.
+
+## WASM Utilities
+
+yolkbot includes WebAssembly-powered utilities for cryptographic operations and coordinate transformations.
+
+### Coordinate Encoding
+
+The `coords()` function converts yaw and pitch angles to the game's encoded format:
+
+```javascript
+import { WASM } from 'yolkbot';
+
+// Convert angles to game format
+const yaw = Math.PI; // 180 degrees
+const pitch = 0.5;   // Looking slightly up
+
+const encoded = WASM.coords(yaw, pitch);
+console.log('Encoded coordinates:', encoded); // 8-character string
+```
+
+This is used internally by dispatches like `LookAtDispatch` to send precise aiming data to the server.
+
+<Info>
+The coordinate encoding uses a custom Base64-like encoding defined in `/source/src/wasm/direct.js:45-109`.
+</Info>
+
+### UUID Validation
+
+The matchmaker server requires HMAC-SHA256 validation of UUIDs:
+
+```javascript
+import { WASM } from 'yolkbot';
+
+// Validate a UUID (used internally by matchmaker)
+const uuid = 'some-uuid-from-server';
+const hash = await WASM.validate(uuid);
+console.log('HMAC hash:', hash);
+```
+
+From `/source/src/wasm/direct.js:19-34`, this uses Node.js crypto or Web Crypto API depending on the environment.
+
+### JavaScript Processing
+
+The `processJS()` function decodes XOR-encrypted strings:
+
+```javascript
+import { WASM } from 'yolkbot';
+
+// Decode an encrypted string
+const encrypted = '...';
+const decrypted = WASM.processJS(encrypted);
+```
+
+<Warning>
+These WASM utilities are low-level functions. Most users won't need to use them directly.
+</Warning>
+
+## Pathfinding Deep Dive
+
+yolkbot uses A* pathfinding to navigate complex maps.
+
+### Understanding the Node System
+
+The map is represented as a 3D grid of nodes:
+
+```javascript
+import { Bot, Enums } from 'yolkbot';
+
+const bot = new Bot({
+    intents: [Enums.Intents.PATHFINDING, Enums.Intents.LOAD_MAP]
+});
+
+// After joining a game...
+bot.on('ready', () => {
+    const nodeList = bot.pathing.nodeList;
+    
+    // Get node at specific coordinates
+    const node = nodeList.at(10, 5, 20);
+    
+    // Check node properties
+    if (node) {
+        console.log('Is air:', node.isAir());
+        console.log('Is ladder:', node.isLadder());
+        console.log('Is jump pad:', node.isJumpPad());
+        console.log('Position:', node.x, node.y, node.z);
+        console.log('Neighbors:', node.links.length);
+    }
+    
+    // Get node at player position
+    const myNode = nodeList.atObject(bot.me.position);
+    console.log('Standing on:', myNode);
+});
+```
+
+### Custom A* Pathfinding
+
+You can use the A* algorithm directly for custom pathfinding:
+
+```javascript
+import { Bot, Enums } from 'yolkbot';
+
+const bot = new Bot({
+    intents: [Enums.Intents.PATHFINDING]
+});
+
+bot.on('ready', async () => {
+    // Wait for map to load
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    
+    const nodeList = bot.pathing.nodeList;
+    const astar = bot.pathing.astar;
+    
+    // Find path between two points
+    const startNode = nodeList.atObject(bot.me.position);
+    const endNode = nodeList.at(50, 10, 50);
+    
+    const path = astar.path(startNode, endNode);
+    
+    if (path) {
+        console.log(`Found path with ${path.length} nodes`);
+        
+        // Each node in the path has:
+        path.forEach((node, i) => {
+            console.log(`Step ${i}: (${node.x}, ${node.y}, ${node.z})`);
+            console.log(`  Center: (${node.flatCenter.x}, ${node.flatCenter.z})`);
+            console.log(`  Parent:`, node.parent);
+        });
+    } else {
+        console.log('No path found!');
+    }
+});
+```
+
+The A* implementation is in `/source/src/pathing/astar.js:1-83` and uses the Manhattan distance heuristic.
+
+### Line of Sight Checking
+
+```javascript
+// Check if you can see a target
+const target = bot.getBestTarget();
+
+if (target) {
+    const hasLOS = bot.canSee(target);
+    
+    if (hasLOS) {
+        console.log('Clear shot!');
+    } else {
+        console.log('Blocked by terrain');
+    }
+}
+
+// Manual line of sight check
+const hasLOS = bot.pathing.nodeList.hasLineOfSight(
+    { x: 10, y: 5, z: 20 },
+    { x: 30, y: 5, z: 40 }
+);
+```
+
+## Custom Dispatches
+
+Create your own dispatch classes to extend bot functionality.
+
+### Dispatch Structure
+
+All dispatches must implement three methods:
+
+```javascript
+class CustomDispatch {
+    constructor(params) {
+        // Store parameters
+        this.params = params;
+    }
+    
+    // Validate parameters (called once on dispatch)
+    validate(bot) {
+        // Return true if parameters are valid
+        return typeof this.params === 'string';
+    }
+    
+    // Check if dispatch can execute (called every update)
+    check(bot) {
+        // Return true when ready to execute
+        return bot.me.playing && bot.state.inGame;
+    }
+    
+    // Execute the dispatch
+    execute(bot) {
+        // Perform the action
+        console.log('Executing with:', this.params);
+    }
+}
+```
+
+### Example: Strafe Dispatch
+
+Create a dispatch that makes the bot strafe around a target:
+
+```javascript
+import { Constants } from 'yolkbot';
+
+class StrafeDispatch {
+    constructor(targetId, direction = 'left') {
+        this.targetId = targetId;
+        this.direction = direction;
+    }
+    
+    validate(bot) {
+        // Ensure target exists
+        return !!bot.players[this.targetId];
+    }
+    
+    check(bot) {
+        const target = bot.players[this.targetId];
+        return bot.me.playing && target && target.playing;
+    }
+    
+    execute(bot) {
+        const target = bot.players[this.targetId];
+        
+        // Calculate direction to target
+        const dx = target.position.x - bot.me.position.x;
+        const dz = target.position.z - bot.me.position.z;
+        const angle = Math.atan2(-dx, -dz);
+        
+        // Set yaw to face target
+        bot.state.yaw = angle;
+        
+        // Strafe left or right
+        const strafeKey = this.direction === 'left' 
+            ? Constants.Movement.Left 
+            : Constants.Movement.Right;
+        
+        bot.state.controlKeys = Constants.Movement.Forward | strafeKey;
+    }
+}
+
+// Usage
+const target = bot.getBestTarget();
+if (target) {
+    bot.dispatch(new StrafeDispatch(target.id, 'left'));
+}
+```
+
+### Example: Smart Reload Dispatch
+
+Reload only when safe:
+
+```javascript
+class SmartReloadDispatch {
+    constructor(safeDistance = 20) {
+        this.safeDistance = safeDistance;
+    }
+    
+    validate() {
+        return this.safeDistance > 0;
+    }
+    
+    check(bot) {
+        if (!bot.me.playing || bot.state.reloading) return false;
+        
+        const weapon = bot.me.weapons[bot.me.activeGun];
+        if (!weapon.ammo || weapon.ammo.rounds >= weapon.ammo.capacity) return false;
+        if (weapon.ammo.store === 0) return false;
+        
+        // Check if enemies are too close
+        const enemies = Object.values(bot.players).filter(p => 
+            p.playing && p.team !== bot.me.team && p.hp > 0
+        );
+        
+        for (const enemy of enemies) {
+            const dist = Math.hypot(
+                enemy.position.x - bot.me.position.x,
+                enemy.position.z - bot.me.position.z
+            );
+            
+            if (dist < this.safeDistance) {
+                return false; // Enemy too close, not safe to reload
+            }
+        }
+        
+        return true;
+    }
+    
+    execute(bot) {
+        bot.emit('reload');
+    }
+}
+
+// Usage
+bot.dispatch(new SmartReloadDispatch(30)); // Only reload when enemies are 30+ units away
+```
+
+## Performance Optimization
+
+### Manual Update Mode
+
+By default, you must call `bot.update()` manually. For more control:
+
+```javascript
+import { Bot, Enums } from 'yolkbot';
+
+const bot = new Bot({
+    intents: [Enums.Intents.MANUAL_UPDATE]
+});
+
+// Call update() at your own rate
+let lastUpdate = Date.now();
+function gameLoop() {
+    const now = Date.now();
+    const delta = now - lastUpdate;
+    
+    // Only update if enough time has passed (30 FPS)
+    if (delta >= 33.33) {
+        bot.update();
+        lastUpdate = now;
+    }
+    
+    requestAnimationFrame(gameLoop);
+}
+gameLoop();
+```
+
+### Reducing Intent Overhead
+
+Only enable intents you need:
+
+```javascript
+// Heavy - tracks player health, pathfinding, stats, etc.
+const heavyBot = new Bot({
+    intents: [
+        Enums.Intents.PATHFINDING,
+        Enums.Intents.PLAYER_HEALTH,
+        Enums.Intents.BOT_STATS,
+        Enums.Intents.CHALLENGES,
+        Enums.Intents.SIMULATION
+    ]
+});
+
+// Light - minimal overhead
+const lightBot = new Bot({
+    intents: [] // No extra processing
+});
+```
+
+### Efficient Event Handling
+
+```javascript
+// Bad - creates new dispatch every tick
+bot.on('tick', () => {
+    bot.dispatch(new Dispatches.MovementDispatch(Movement.Forward));
+});
+
+// Good - reuse dispatch or use state directly
+const moveDispatch = new Dispatches.MovementDispatch(Movement.Forward);
+bot.dispatch(moveDispatch);
+
+// Even better - set state directly for continuous movement
+bot.state.controlKeys = Movement.Forward;
+```
+
+### Debouncing Expensive Operations
+
+```javascript
+let lastPathfind = 0;
+const PATHFIND_COOLDOWN = 1000; // 1 second
+
+bot.on('tick', () => {
+    const target = bot.getBestTarget();
+    const now = Date.now();
+    
+    // Only pathfind once per second
+    if (target && now - lastPathfind > PATHFIND_COOLDOWN) {
+        bot.dispatch(new Dispatches.GoToPlayerDispatch(target.id));
+        lastPathfind = now;
+    }
+});
+```
+
+## Simulation Mode
+
+The `SIMULATION` intent enables client-side movement prediction:
+
+```javascript
+import { Bot, Enums } from 'yolkbot';
+
+const bot = new Bot({
+    intents: [
+        Enums.Intents.PATHFINDING,
+        Enums.Intents.SIMULATION // Requires PATHFINDING
+    ]
+});
+
+bot.on('tick', () => {
+    if (!bot.me.playing) return;
+    
+    // With SIMULATION, bot.me.position updates in real-time
+    console.log('Current position:', bot.me.position);
+    
+    // Movement is predicted client-side
+    bot.state.controlKeys = Constants.Movement.Forward | Constants.Movement.Jump;
+    
+    // Position updates are applied in bot.update() at line 718-939
+});
+
+setInterval(() => bot.update(), 1000 / 30);
+```
+
+From `/source/src/bot.js:854-939`, simulation mode calculates:
+- Velocity based on movement keys
+- Gravity effects
+- Collision detection
+- Jump physics
+
+<Warning>
+Simulation mode is CPU-intensive. Only use it when you need accurate position tracking.
+</Warning>
+
+## Packet Hooks
+
+Intercept and analyze raw packets:
+
+```javascript
+import { Bot, Enums, CommCode } from 'yolkbot';
+
+const bot = new Bot({
+    intents: [
+        Enums.Intents.PACKET_HOOK,
+        Enums.Intents.LOG_PACKETS // Print packet names
+    ]
+});
+
+bot.on('packet', (rawPacket) => {
+    // rawPacket is an ArrayBuffer
+    const view = new DataView(rawPacket);
+    const firstByte = view.getUint8(0);
+    
+    // Check packet type
+    if (firstByte === CommCode.fire) {
+        console.log('Someone fired!');
+    }
+});
+```
+
+## State Buffer Analysis
+
+Debug the movement state buffer:
+
+```javascript
+const bot = new Bot({
+    intents: [Enums.Intents.DEBUG_BUFFER]
+});
+
+// This logs every state buffer operation
+// Useful for debugging movement sync issues
+```
+
+From `/source/src/bot.js:838-849`, the state buffer stores:
+- Control keys (WASD, jump)
+- Yaw and pitch
+- Shots fired
+- Position (if DEBUG_BUFFER is enabled)
+
+## Advanced Game Management
+
+### Custom Error Logging
+
+```javascript
+const bot = new Bot({
+    errorLogger: (...args) => {
+        // Custom error handling
+        console.error('[BOT ERROR]', ...args);
+        // Send to logging service, etc.
+    }
+});
+```
+
+### Session Management
+
+```javascript
+import { Bot, Enums } from 'yolkbot';
+
+const bot = new Bot({
+    intents: [Enums.Intents.RENEW_SESSION]
+});
+
+// Session is automatically renewed every 10 minutes
+bot.on('sessionExpired', () => {
+    console.log('Session expired! Re-login required.');
+    // Handle re-authentication
+});
+```
+
+### Faster Respawn
+
+```javascript
+const bot = new Bot({
+    intents: [Enums.Intents.FASTER_RESPAWN]
+});
+
+// Respawn time reduced from 6s to 5s
+bot.on('die', () => {
+    setTimeout(() => bot.emit('spawn'), 5000);
+});
+```
+
+## Complete Advanced Example
+
+A bot using all advanced features:
+
+```javascript
+import { Bot, Dispatches, Constants, Enums, WASM } from 'yolkbot';
+
+// Custom smart combat dispatch
+class SmartCombatDispatch {
+    constructor(targetId) {
+        this.targetId = targetId;
+        this.lastShot = 0;
+    }
+    
+    validate(bot) {
+        return !!bot.players[this.targetId];
+    }
+    
+    check(bot) {
+        const target = bot.players[this.targetId];
+        return bot.me.playing && target && target.playing && bot.canSee(target);
+    }
+    
+    execute(bot) {
+        const target = bot.players[this.targetId];
+        const weapon = bot.me.weapons[bot.me.activeGun];
+        
+        // Lead target based on velocity
+        const distance = Math.hypot(
+            target.position.x - bot.me.position.x,
+            target.position.z - bot.me.position.z
+        );
+        
+        const bulletSpeed = weapon.bulletSpeed || 1;
+        const timeToHit = distance / bulletSpeed;
+        
+        // Predict target position
+        const predictedPos = {
+            x: target.position.x + (target.velocity?.x || 0) * timeToHit,
+            y: target.position.y,
+            z: target.position.z + (target.velocity?.z || 0) * timeToHit
+        };
+        
+        // Aim at predicted position
+        const dx = predictedPos.x - bot.me.position.x;
+        const dy = predictedPos.y - bot.me.position.y;
+        const dz = predictedPos.z - bot.me.position.z;
+        
+        bot.state.yaw = Math.atan2(-dx, -dz);
+        bot.state.pitch = Math.atan2(dy, Math.hypot(dx, dz));
+        
+        // Fire with rate limiting
+        const now = Date.now();
+        if (now - this.lastShot > weapon.fireDelay) {
+            bot.state.shotsFired += 1;
+            this.lastShot = now;
+        }
+    }
+}
+
+const bot = new Bot({
+    intents: [
+        Enums.Intents.PATHFINDING,
+        Enums.Intents.SIMULATION,
+        Enums.Intents.PLAYER_HEALTH,
+        Enums.Intents.RENEW_SESSION,
+        Enums.Intents.FASTER_RESPAWN
+    ],
+    errorLogger: (...args) => console.error('[ADVANCED BOT]', ...args)
+});
+
+await bot.loginAnonymously();
+const game = await bot.findPublicGame('us-east', 'ffa');
+await bot.join('AdvancedBot', game);
+
+let currentTarget = null;
+let lastPathUpdate = 0;
+
+bot.on('tick', () => {
+    if (!bot.me.playing) return;
+    
+    const target = bot.getBestTarget();
+    const now = Date.now();
+    
+    if (target) {
+        // Update pathfinding every 2 seconds
+        if (target.id !== currentTarget?.id || now - lastPathUpdate > 2000) {
+            const myNode = bot.pathing.nodeList.atObject(bot.me.position);
+            const targetNode = bot.pathing.nodeList.atObject(target.position);
+            
+            if (myNode && targetNode) {
+                const path = bot.pathing.astar.path(myNode, targetNode);
+                if (path) {
+                    bot.pathing.activePath = path;
+                    bot.pathing.activeNodeIdx = 1;
+                    lastPathUpdate = now;
+                }
+            }
+        }
+        
+        // Use custom combat dispatch
+        bot.dispatch(new SmartCombatDispatch(target.id));
+        
+        currentTarget = target;
+    }
+});
+
+setInterval(() => bot.update(), 1000 / 30);
+```
+
+<Check>
+This advanced example demonstrates custom dispatches, A* pathfinding, simulation mode, and target prediction.
+</Check>

@@ -1,0 +1,466 @@
+---
+title: Interaction Dispatches
+description: Chat, spawn, manage game settings, and moderate players
+---
+
+## ChatDispatch
+
+Send a chat message to the game.
+
+```javascript
+new ChatDispatch(msg)
+```
+
+<ParamField path="msg" type="string" required>
+  Message to send (1-64 characters)
+</ParamField>
+
+### Example
+
+```javascript
+import { ChatDispatch } from 'yolkbot';
+
+// Send a chat message
+bot.dispatch(new ChatDispatch('Hello!'));
+
+// Respond to kills
+bot.on('playerKill', (killer, victim) => {
+  if (killer === bot.me) {
+    bot.dispatch(new ChatDispatch('GG'));
+  }
+});
+```
+
+<Warning>
+Chat has restrictions:
+- Message must be 1-64 characters
+- In public games, non-verified accounts cannot chat
+- Non-admin bots are limited to 2 messages per game
+- Requires bot to be in a game
+</Warning>
+
+---
+
+## SpawnDispatch
+
+Respawn the bot after death.
+
+```javascript
+new SpawnDispatch()
+```
+
+### Example
+
+```javascript
+import { SpawnDispatch } from 'yolkbot';
+
+// Respawn immediately when possible
+bot.on('playerDeath', (victim, killer) => {
+  if (victim === bot.me) {
+    setTimeout(() => {
+      bot.dispatch(new SpawnDispatch());
+    }, 6000); // Wait for respawn timer
+  }
+});
+```
+
+<Note>
+Respawn timing:
+- Standard: 6000ms (6 seconds)
+- With `Intents.FASTER_RESPAWN`: 5000ms (5 seconds)
+- Won't work if bot has `Intents.OBSERVE_GAME`
+</Note>
+
+---
+
+## PauseDispatch
+
+Leave the game and return to spectator mode.
+
+```javascript
+new PauseDispatch()
+```
+
+### Example
+
+```javascript
+import { PauseDispatch } from 'yolkbot';
+
+// Leave game when KDR drops too low
+bot.on('playerDeath', (victim) => {
+  if (victim === bot.me) {
+    const kdr = bot.me.kills / (bot.me.deaths || 1);
+    if (kdr < 0.5) {
+      bot.dispatch(new PauseDispatch());
+    }
+  }
+});
+```
+
+<Note>
+After pausing, `bot.me.playing` will be set to `false` after approximately 3 seconds.
+</Note>
+
+---
+
+## SwitchTeamDispatch
+
+Switch to the other team.
+
+```javascript
+new SwitchTeamDispatch()
+```
+
+### Example
+
+```javascript
+import { SwitchTeamDispatch } from 'yolkbot';
+
+// Balance teams if yours has more players
+const myTeam = Object.values(bot.players).filter(p => p.team === bot.me.team).length;
+const otherTeam = Object.values(bot.players).filter(p => p.team !== bot.me.team).length;
+
+if (myTeam > otherTeam && !bot.me.playing) {
+  bot.dispatch(new SwitchTeamDispatch());
+}
+```
+
+<Warning>
+Restrictions:
+- Only works in team-based game modes (not FFA)
+- Cannot switch while playing
+- Cannot switch if teams are balanced or other team has more players
+- Host can disable team switching in private games
+- Won't work with `Intents.OBSERVE_GAME`
+</Warning>
+
+---
+
+## SaveLoadoutDispatch
+
+Change the bot's loadout (weapons, cosmetics, egg color).
+
+```javascript
+new SaveLoadoutDispatch(opts)
+```
+
+<ParamField path="opts.gunId" type="number" optional>
+  Class index (0-6) for weapon class
+</ParamField>
+
+<ParamField path="opts.hatId" type="number" optional>
+  Hat item ID
+</ParamField>
+
+<ParamField path="opts.stampId" type="number" optional>
+  Stamp item ID
+</ParamField>
+
+<ParamField path="opts.grenadeId" type="number" optional>
+  Grenade item ID
+</ParamField>
+
+<ParamField path="opts.meleeId" type="number" optional>
+  Melee item ID
+</ParamField>
+
+<ParamField path="opts.eggColor" type="number" optional>
+  Egg color index (0-13, colors 7+ require VIP)
+</ParamField>
+
+<ParamField path="opts.primaryIds" type="number[]" optional>
+  Array of 7 primary weapon IDs (one for each class)
+</ParamField>
+
+<ParamField path="opts.secondaryIds" type="number[]" optional>
+  Array of 7 secondary weapon IDs (one for each class)
+</ParamField>
+
+### Example
+
+```javascript
+import { SaveLoadoutDispatch } from 'yolkbot';
+
+// Change weapon class to Free Ranger (class 2)
+bot.dispatch(new SaveLoadoutDispatch({ gunId: 2 }));
+
+// Change egg color to red (color 1)
+bot.dispatch(new SaveLoadoutDispatch({ eggColor: 1 }));
+
+// Change multiple items
+bot.dispatch(new SaveLoadoutDispatch({
+  gunId: 0,      // EggK-47
+  eggColor: 3,   // Yellow
+  hatId: 5,      // Specific hat
+  grenadeId: 10  // Specific grenade
+}));
+```
+
+<Warning>
+- Can only change loadout while not playing
+- Cannot use items you don't own
+- VIP colors (7+) require VIP status
+- Invalid item IDs will fail validation
+</Warning>
+
+---
+
+## GameOptionsDispatch
+
+Modify game settings (host only).
+
+```javascript
+new GameOptionsDispatch(changes)
+```
+
+<ParamField path="changes.gravity" type="number" optional>
+  Gravity scale (0.25, 0.5, 0.75, or 1.0)
+</ParamField>
+
+<ParamField path="changes.damage" type="number" optional>
+  Damage multiplier (0 to 2.0 in increments of 0.25)
+</ParamField>
+
+<ParamField path="changes.healthRegen" type="number" optional>
+  Health regeneration (0 to 4.0 in increments of 0.25)
+</ParamField>
+
+<ParamField path="changes.locked" type="boolean" optional>
+  Lock the game
+</ParamField>
+
+<ParamField path="changes.noTeamChange" type="boolean" optional>
+  Disable team switching
+</ParamField>
+
+<ParamField path="changes.noTeamShuffle" type="boolean" optional>
+  Disable team shuffle
+</ParamField>
+
+<ParamField path="changes.disableEggk" type="boolean" optional>
+  Disable EggK-47 (class 0)
+</ParamField>
+
+<ParamField path="changes.disableScrambler" type="boolean" optional>
+  Disable Scrambler (class 1)
+</ParamField>
+
+<ParamField path="changes.disableFreeRanger" type="boolean" optional>
+  Disable Free Ranger (class 2)
+</ParamField>
+
+<ParamField path="changes.disableRPG" type="boolean" optional>
+  Disable RPEGG (class 3)
+</ParamField>
+
+<ParamField path="changes.disableWhipper" type="boolean" optional>
+  Disable Whipper (class 4)
+</ParamField>
+
+<ParamField path="changes.disableCrackshot" type="boolean" optional>
+  Disable Crackshot (class 5)
+</ParamField>
+
+<ParamField path="changes.disableTriHard" type="boolean" optional>
+  Disable TriHard (class 6)
+</ParamField>
+
+<ParamField path="changes.toDisable" type="number[]" optional>
+  Array of class indices to disable
+</ParamField>
+
+<ParamField path="changes.toEnable" type="number[]" optional>
+  Array of class indices to enable
+</ParamField>
+
+<ParamField path="changes.rawWeaponsDisabled" type="boolean[]" optional>
+  Array of 7 booleans for each class (true = disabled)
+</ParamField>
+
+### Example
+
+```javascript
+import { GameOptionsDispatch } from 'yolkbot';
+
+// Set low gravity
+bot.dispatch(new GameOptionsDispatch({ gravity: 0.5 }));
+
+// Disable RPEGG and TriHard
+bot.dispatch(new GameOptionsDispatch({ toDisable: [3, 6] }));
+
+// Set multiple options
+bot.dispatch(new GameOptionsDispatch({
+  gravity: 0.75,
+  damage: 1.5,
+  healthRegen: 2.0,
+  locked: true,
+  noTeamChange: true
+}));
+
+// Only allow Free Ranger
+bot.dispatch(new GameOptionsDispatch({
+  rawWeaponsDisabled: [true, true, false, true, true, true, true]
+}));
+```
+
+<Warning>
+Only works if `bot.game.isGameOwner` is true (you are the host).
+</Warning>
+
+---
+
+## ResetGameDispatch
+
+Reset the game scores and timer (host only).
+
+```javascript
+new ResetGameDispatch()
+```
+
+### Example
+
+```javascript
+import { ResetGameDispatch } from 'yolkbot';
+
+// Reset game when round is over
+bot.on('gameEnd', () => {
+  if (bot.game.isGameOwner) {
+    bot.dispatch(new ResetGameDispatch());
+  }
+});
+```
+
+<Warning>
+Only works if `bot.game.isGameOwner` is true.
+</Warning>
+
+---
+
+## BanPlayerDispatch
+
+Ban a player from Shell Shockers (admin only).
+
+```javascript
+new BanPlayerDispatch(uniqueId, duration, reason)
+```
+
+<ParamField path="uniqueId" type="string" required>
+  Player's unique ID
+</ParamField>
+
+<ParamField path="duration" type="number" required>
+  Ban duration from `BanDuration` constant
+</ParamField>
+
+<ParamField path="reason" type="string" default="">
+  Reason for the ban
+</ParamField>
+
+### Example
+
+```javascript
+import { BanPlayerDispatch } from 'yolkbot';
+import { BanDuration } from 'yolkbot/constants';
+
+// Ban a player for 24 hours
+const cheater = Object.values(bot.players).find(p => p.name === 'Cheater');
+if (cheater) {
+  bot.dispatch(new BanPlayerDispatch(
+    cheater.uniqueId,
+    BanDuration.Day,
+    'Cheating'
+  ));
+}
+```
+
+<Warning>
+Only works if the bot account has admin permissions (`bot.account.adminRoles & 4`).
+</Warning>
+
+---
+
+## BootPlayerDispatch
+
+Kick a player from your game (host only).
+
+```javascript
+new BootPlayerDispatch(uniqueId)
+```
+
+<ParamField path="uniqueId" type="string" required>
+  Player's unique ID to kick
+</ParamField>
+
+### Example
+
+```javascript
+import { BootPlayerDispatch } from 'yolkbot';
+
+// Kick a specific player
+const player = Object.values(bot.players).find(p => p.name === 'Griefer');
+if (player && bot.game.isGameOwner) {
+  bot.dispatch(new BootPlayerDispatch(player.uniqueId));
+}
+```
+
+<Warning>
+Only works if `bot.game.isGameOwner` is true and the player is in your game.
+</Warning>
+
+---
+
+## ReportPlayerDispatch
+
+Report a player for violations.
+
+```javascript
+new ReportPlayerDispatch(idOrName, reasons)
+```
+
+<ParamField path="idOrName" type="string | number" required>
+  Player ID or name to report
+</ParamField>
+
+<ParamField path="reasons" type="object" optional>
+  Reasons for the report
+</ParamField>
+
+<ParamField path="reasons.cheating" type="boolean" optional>
+  Report for cheating
+</ParamField>
+
+<ParamField path="reasons.harassment" type="boolean" optional>
+  Report for harassment
+</ParamField>
+
+<ParamField path="reasons.offensive" type="boolean" optional>
+  Report for offensive content
+</ParamField>
+
+<ParamField path="reasons.other" type="boolean" optional>
+  Report for other reasons (default if no reason specified)
+</ParamField>
+
+### Example
+
+```javascript
+import { ReportPlayerDispatch } from 'yolkbot';
+
+// Report for cheating
+bot.dispatch(new ReportPlayerDispatch('SuspiciousPlayer', {
+  cheating: true
+}));
+
+// Report for harassment and offensive content
+bot.dispatch(new ReportPlayerDispatch('ToxicPlayer', {
+  harassment: true,
+  offensive: true
+}));
+
+// Report with default "other" reason
+bot.dispatch(new ReportPlayerDispatch('PlayerName'));
+```
+
+<Note>
+At least one reason must be specified. If no reasons are provided, it defaults to "other".
+</Note>

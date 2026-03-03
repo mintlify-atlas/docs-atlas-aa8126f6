@@ -1,0 +1,455 @@
+---
+title: 'Code Examples'
+description: 'Complete working examples for common yolkbot use cases'
+---
+
+This page provides real, functional examples demonstrating different use cases for yolkbot. All code examples are tested and ready to use.
+
+## Basic Bot: Join and Spawn
+
+Create a bot that logs in anonymously, joins a public FFA game, and automatically spawns.
+
+```javascript
+import { Bot, Enums } from 'yolkbot';
+
+// Create a bot instance with pathfinding enabled
+const bot = new Bot({
+  intents: [Enums.Intents.PATHFINDING]
+});
+
+// Login anonymously (no account required)
+await bot.loginAnonymously();
+
+// Find a public FFA game in the US-East region
+const game = await bot.findPublicGame('us-east', 'ffa');
+console.log('Found game:', game.id);
+
+// Join the game
+await bot.join('MyBot', game);
+
+// Listen for when we're ready to spawn
+bot.on('ready', () => {
+  console.log('Connected to game!');
+  // Spawn immediately
+  bot.emit('spawn');
+});
+
+// Listen for when we successfully spawn
+bot.on('spawn', () => {
+  console.log('Spawned in game!');
+});
+
+// Start the update loop (required for bot to function)
+setInterval(() => bot.update(), 1000 / 30);
+```
+
+<Note>
+The `bot.update()` method must be called regularly (typically 30 times per second) for dispatches and pathfinding to work properly.
+</Note>
+
+## Movement and Combat
+
+Make your bot move, look at enemies, and fire at them.
+
+```javascript
+import { Bot, Dispatches, Constants, Enums } from 'yolkbot';
+
+const bot = new Bot({
+  intents: [Enums.Intents.PATHFINDING, Enums.Intents.PLAYER_HEALTH]
+});
+
+// ... login and join game ...
+
+bot.on('spawn', () => {
+  console.log('We spawned! Looking for targets...');
+});
+
+// Combat logic on each tick
+bot.on('tick', () => {
+  if (!bot.me.playing) return;
+  
+  // Find the closest enemy
+  const target = bot.getBestTarget();
+  
+  if (target) {
+    // Look at the target
+    bot.dispatch(new Dispatches.LookAtDispatch(target.id));
+    
+    // Check if we can see them (line of sight)
+    if (bot.canSee(target)) {
+      // Fire at them
+      bot.dispatch(new Dispatches.FireDispatch(1));
+    }
+    
+    // Reload if we're low on ammo
+    const weapon = bot.me.weapons[bot.me.activeGun];
+    if (weapon.ammo.rounds < 5) {
+      bot.emit('reload');
+    }
+  }
+});
+
+// Movement example: combine movement keys
+const moveForward = Constants.Movement.Forward;
+const moveForwardLeft = Constants.Movement.Forward | Constants.Movement.Left;
+
+bot.dispatch(new Dispatches.MovementDispatch(moveForward));
+
+// Or use array syntax
+bot.dispatch(new Dispatches.MovementDispatch([
+  Constants.Movement.Forward,
+  Constants.Movement.Jump
+]));
+
+setInterval(() => bot.update(), 1000 / 30);
+```
+
+<Tip>
+`bot.getBestTarget()` automatically finds the closest enemy on a different team, prioritizing players on the same Y-level.
+</Tip>
+
+## Chat and Communication
+
+Send chat messages and respond to other players.
+
+```javascript
+import { Bot, Dispatches } from 'yolkbot';
+
+const bot = new Bot();
+
+// ... login and join game ...
+
+bot.on('ready', () => {
+  // Send a chat message when joining
+  bot.emit('chat', 'Hello everyone!');
+});
+
+// Listen for chat messages from other players
+bot.on('chat', (player, message, flags) => {
+  console.log(`${player.name}: ${message}`);
+  
+  // Respond to greetings
+  if (message.toLowerCase().includes('hello')) {
+    bot.dispatch(new Dispatches.ChatDispatch(`Hi ${player.name}!`));
+  }
+});
+
+// Listen for kills
+bot.on('kill', (killer, victim) => {
+  if (killer.id === bot.me.id) {
+    bot.emit('chat', 'GG!');
+  }
+});
+
+setInterval(() => bot.update(), 1000 / 30);
+```
+
+<Warning>
+Chat has rate limits. In public games, non-verified accounts can only send 2 messages per 4 seconds. The ChatDispatch validates these limits automatically.
+</Warning>
+
+## Pathfinding and Navigation
+
+Use pathfinding to navigate to players, items, or objectives.
+
+```javascript
+import { Bot, Dispatches, Enums } from 'yolkbot';
+
+// Pathfinding requires the PATHFINDING intent
+const bot = new Bot({
+  intents: [Enums.Intents.PATHFINDING]
+});
+
+// ... login and join game ...
+
+bot.on('spawn', () => {
+  // Find and chase the nearest enemy
+  const target = bot.getBestTarget();
+  
+  if (target) {
+    console.log(`Pathfinding to ${target.name}`);
+    // Start pathfinding to the target
+    bot.dispatch(new Dispatches.GoToPlayerDispatch(target.id));
+  }
+});
+
+// Listen for pathfinding completion
+bot.on('pathfindComplete', () => {
+  console.log('Reached destination!');
+});
+
+// Handle pathfinding errors
+bot.on('pathfindError', (error) => {
+  console.log('Pathfinding failed:', error);
+});
+
+// Navigate to ammo when low
+bot.on('tick', () => {
+  const weapon = bot.me.weapons[bot.me.activeGun];
+  
+  if (weapon.ammo.store < 10) {
+    // Go to nearest ammo pickup
+    bot.emit('goToAmmo');
+  }
+});
+
+setInterval(() => bot.update(), 1000 / 30);
+```
+
+<Info>
+Pathfinding automatically handles jumping gaps and navigating complex terrain using A* pathfinding.
+</Info>
+
+## Weapon Management
+
+Swap weapons and manage ammo effectively.
+
+```javascript
+import { Bot, Dispatches } from 'yolkbot';
+
+const bot = new Bot();
+
+// ... login and join game ...
+
+bot.on('tick', () => {
+  if (!bot.me.playing) return;
+  
+  const primary = bot.me.weapons[0];
+  const secondary = bot.me.weapons[1];
+  
+  // Swap to secondary if primary is empty
+  if (primary.ammo.rounds === 0 && bot.me.activeGun === 0) {
+    bot.dispatch(new Dispatches.SwapWeaponDispatch(1));
+  }
+  
+  // Swap back to primary after reloading
+  if (primary.ammo.rounds === primary.ammo.capacity && bot.me.activeGun === 1) {
+    bot.dispatch(new Dispatches.SwapWeaponDispatch(0));
+  }
+});
+
+// Listen for reload events
+bot.on('playerStartReload', (player, weapon) => {
+  if (player.id === bot.me.id) {
+    console.log('Reloading...');
+    // Maybe find cover while reloading
+  }
+});
+
+bot.on('playerEndReload', (player, weapon) => {
+  if (player.id === bot.me.id) {
+    console.log('Reload complete!');
+  }
+});
+
+setInterval(() => bot.update(), 1000 / 30);
+```
+
+## Private Game Management
+
+Create and manage private games with custom options.
+
+```javascript
+import { Bot, Constants } from 'yolkbot';
+
+const bot = new Bot();
+
+// Login with an account (required for game owner features)
+await bot.login('email@example.com', 'password');
+
+// Create a private Team game on Crackshot map
+const game = await bot.createPrivateGame('us-east', 'team', 'crackshot');
+console.log('Private game code:', game.id);
+
+// Join the game
+await bot.join('GameOwner', game);
+
+bot.on('ready', () => {
+  // As game owner, we can modify game options
+  bot.game.options.gravity = 2; // Double gravity
+  bot.game.options.damage = 0.5; // Half damage
+  bot.game.options.healthRegen = 2; // Double health regen
+  bot.game.options.locked = true; // Lock the game
+  
+  // Disable specific weapons (0=EggK47, 1=DozenGauge, etc.)
+  bot.game.options.weaponsDisabled[3] = true; // Disable RPEGG
+  
+  // Apply the changes
+  bot.updateGameOptions();
+  
+  console.log('Game options updated!');
+});
+
+// Boot a player (game owner only)
+bot.on('playerJoin', (player) => {
+  if (player.name.includes('HACKER')) {
+    bot.dispatch(new Dispatches.BootPlayerDispatch(player.id));
+  }
+});
+
+setInterval(() => bot.update(), 1000 / 30);
+```
+
+## Event Handling
+
+Listen to game events to react to what's happening.
+
+```javascript
+import { Bot } from 'yolkbot';
+
+const bot = new Bot();
+
+// ... login and join game ...
+
+// Player joins the game
+bot.on('playerJoin', (player) => {
+  console.log(`${player.name} joined the game`);
+});
+
+// Player leaves the game
+bot.on('playerLeave', (player) => {
+  console.log(`${player.name} left the game`);
+});
+
+// Someone got a kill
+bot.on('kill', (killer, victim) => {
+  console.log(`${killer.name} killed ${victim.name}`);
+  
+  if (victim.id === bot.me.id) {
+    console.log('We died!');
+  }
+});
+
+// We died
+bot.on('die', () => {
+  console.log('Respawning in 6 seconds...');
+  
+  // Auto-respawn after death
+  setTimeout(() => {
+    bot.emit('spawn');
+  }, 6000);
+});
+
+// Listen to ALL events (useful for debugging)
+bot.onAny((eventName, ...args) => {
+  console.log('Event:', eventName, args);
+});
+
+setInterval(() => bot.update(), 1000 / 30);
+```
+
+## Complete Combat Bot
+
+A fully-featured bot that combines all concepts.
+
+```javascript
+import { Bot, Dispatches, Constants, Enums } from 'yolkbot';
+
+const bot = new Bot({
+  intents: [
+    Enums.Intents.PATHFINDING,
+    Enums.Intents.PLAYER_HEALTH,
+    Enums.Intents.SIMULATION
+  ]
+});
+
+let combatMode = 'aggressive'; // or 'defensive'
+
+await bot.loginAnonymously();
+const game = await bot.findPublicGame('us-east', 'ffa');
+await bot.join('CombatBot', game);
+
+bot.on('ready', () => {
+  bot.emit('spawn');
+});
+
+bot.on('spawn', () => {
+  console.log('Spawned! Engaging combat mode...');
+});
+
+// Main combat loop
+bot.on('tick', () => {
+  if (!bot.me.playing) return;
+  
+  const target = bot.getBestTarget();
+  const myWeapon = bot.me.weapons[bot.me.activeGun];
+  const myHealth = bot.me.hp;
+  
+  // Health-based strategy
+  if (myHealth < 30) {
+    combatMode = 'defensive';
+  } else if (myHealth > 70) {
+    combatMode = 'aggressive';
+  }
+  
+  if (target) {
+    const distance = Math.hypot(
+      target.position.x - bot.me.position.x,
+      target.position.z - bot.me.position.z
+    );
+    
+    // Look at target
+    bot.dispatch(new Dispatches.LookAtDispatch(target.id));
+    
+    if (combatMode === 'aggressive') {
+      // Chase and attack
+      if (distance > 10) {
+        bot.dispatch(new Dispatches.GoToPlayerDispatch(target.id));
+      }
+      
+      if (bot.canSee(target) && myWeapon.ammo.rounds > 0) {
+        bot.dispatch(new Dispatches.FireDispatch(1));
+      }
+    } else {
+      // Defensive: only shoot, don't chase
+      if (bot.canSee(target) && myWeapon.ammo.rounds > 0) {
+        bot.dispatch(new Dispatches.FireDispatch(1));
+      }
+      
+      // Back away if too close
+      if (distance < 5) {
+        bot.dispatch(new Dispatches.MovementDispatch(
+          Constants.Movement.Backward
+        ));
+      }
+    }
+  }
+  
+  // Weapon management
+  if (myWeapon.ammo.rounds === 0) {
+    const otherGun = bot.me.weapons[bot.me.activeGun === 0 ? 1 : 0];
+    if (otherGun.ammo.rounds > 0) {
+      bot.emit('swapWeapon');
+    }
+  }
+  
+  // Auto-reload when low
+  if (myWeapon.ammo.rounds < 3 && myWeapon.ammo.store > 0) {
+    bot.emit('reload');
+  }
+  
+  // Collect ammo when low
+  if (myWeapon.ammo.store < 20 && !bot.pathing.activePath) {
+    bot.emit('goToAmmo');
+  }
+});
+
+bot.on('die', () => {
+  console.log('Died! Respawning...');
+  setTimeout(() => bot.emit('spawn'), 6000);
+});
+
+bot.on('kill', (killer, victim) => {
+  if (killer.id === bot.me.id) {
+    console.log(`Got a kill on ${victim.name}!`);
+    bot.emit('chat', 'GG');
+  }
+});
+
+// Start the bot
+setInterval(() => bot.update(), 1000 / 30);
+```
+
+<Check>
+This complete example demonstrates a fully functional combat bot with adaptive strategy, weapon management, and pathfinding.
+</Check>

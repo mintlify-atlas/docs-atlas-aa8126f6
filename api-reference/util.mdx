@@ -1,0 +1,386 @@
+---
+title: Utility Functions
+description: General utility functions for yolkbot
+---
+
+The utility module provides helper functions for common operations including error handling, gun initialization, map fetching, zone computation, and time utilities.
+
+## createError
+
+Creates a standardized error object.
+
+### Signature
+
+```javascript
+createError(errorEnum: any): { ok: false, error: any }
+```
+
+### Parameters
+
+- `errorEnum` (any) - Error enum or error value to wrap
+
+### Returns
+
+An object with `ok: false` and the provided error value.
+
+### Example
+
+```javascript
+import { createError } from 'yolkbot/util';
+
+const error = createError('INVALID_INPUT');
+console.log(error);
+// { ok: false, error: 'INVALID_INPUT' }
+
+if (!error.ok) {
+  console.error('Operation failed:', error.error);
+}
+```
+
+### Usage Pattern
+
+Commonly used with result types for error handling:
+
+```javascript
+function validateUser(user) {
+  if (!user.name) {
+    return createError('MISSING_NAME');
+  }
+  return { ok: true, data: user };
+}
+
+const result = validateUser({ age: 25 });
+if (!result.ok) {
+  console.error(result.error); // 'MISSING_NAME'
+}
+```
+
+## createGun
+
+Creates a gun object with initialized ammo state.
+
+### Signature
+
+```javascript
+createGun(baseGun: object): object
+```
+
+### Parameters
+
+- `baseGun` (object) - Base gun configuration object
+  - `ammo.capacity` (number) - Maximum rounds per magazine
+  - `ammo.store` (number) - Total ammo in reserve
+
+### Returns
+
+A cloned gun object with initialized ammo state:
+- `ammo.rounds` set to `ammo.capacity`
+- `ammo.storeMax` set to `ammo.store`
+
+### Example
+
+```javascript
+import { createGun } from 'yolkbot/util';
+
+const baseGun = {
+  name: 'Shotgun',
+  damage: 10,
+  ammo: {
+    capacity: 8,
+    store: 32
+  }
+};
+
+const gun = createGun(baseGun);
+console.log(gun.ammo);
+// {
+//   capacity: 8,
+//   store: 32,
+//   rounds: 8,      // Initialized to capacity
+//   storeMax: 32    // Initialized to store
+// }
+```
+
+### Implementation Notes
+
+- Uses `structuredClone()` for deep copying
+- Preserves all properties from base gun
+- Initializes ammo to full capacity
+
+## fetchMap
+
+Fetches map data with automatic caching and retry logic.
+
+### Signature
+
+```javascript
+fetchMap(name: string, hash: string): Promise<object>
+```
+
+### Parameters
+
+- `name` (string) - Map name identifier
+- `hash` (string) - Map version hash for cache busting
+
+### Returns
+
+Promise that resolves to the map data object.
+
+### Example
+
+```javascript
+import { fetchMap } from 'yolkbot/util';
+
+const mapData = await fetchMap('desert_ruins', 'abc123');
+console.log(mapData);
+// { vertices: [...], meshes: [...], spawn: {...} }
+```
+
+### Caching Behavior
+
+**Node.js Environment:**
+- Maps cached to `~/.yolkbot/maps/`
+- Filename format: `{name}-{hash}.json`
+- Automatic cache directory creation
+- Cache persists across runs
+
+**Browser Environment:**
+- No persistent caching
+- Each request fetches from server
+
+### Error Handling
+
+```javascript
+try {
+  const map = await fetchMap('unknown_map', 'xyz');
+} catch (error) {
+  console.error('Failed to fetch map:', error);
+}
+```
+
+### Retry Logic
+
+- Automatic retry on failure (default: 3 attempts)
+- Exponential backoff (300ms, 600ms, 1200ms)
+- Throws after all retries exhausted
+
+### Advanced Usage
+
+```javascript
+// Prefetch multiple maps
+const maps = await Promise.all([
+  fetchMap('map1', 'hash1'),
+  fetchMap('map2', 'hash2'),
+  fetchMap('map3', 'hash3')
+]);
+
+// Cache check (Node.js only)
+const cached = await fetchMap('map1', 'hash1'); // Instant from cache
+```
+
+## initKotcZones
+
+Initializes King of the Castle zones using flood-fill algorithm.
+
+### Signature
+
+```javascript
+initKotcZones(meshData: Array<{x: number, y: number, z: number}>): Array<Array<object>>
+```
+
+### Parameters
+
+- `meshData` (Array) - Array of mesh cell objects with `x`, `y`, `z` coordinates
+
+### Returns
+
+Array of zones, where each zone is an array of connected cells.
+
+### Example
+
+```javascript
+import { initKotcZones } from 'yolkbot/util';
+
+const meshData = [
+  { x: 0, y: 0, z: 0 },
+  { x: 1, y: 0, z: 0 },
+  { x: 2, y: 0, z: 0 },
+  { x: 5, y: 5, z: 5 },  // Separate zone
+];
+
+const zones = initKotcZones(meshData);
+console.log(zones.length); // 2 (two disconnected zones)
+console.log(zones[0].length); // 3 (first zone has 3 cells)
+console.log(zones[1].length); // 1 (second zone has 1 cell)
+```
+
+### Algorithm
+
+1. Builds a 3D spatial index of all mesh cells
+2. Uses breadth-first search (BFS) to find connected components
+3. Considers cells connected if adjacent in X, Y, or Z axis
+4. Assigns unique zone ID to each cell
+
+### Output Format
+
+```javascript
+// Each cell in the result has a 'zone' property
+const zones = initKotcZones(meshData);
+zones.forEach((zone, zoneId) => {
+  console.log(`Zone ${zoneId + 1}:`);
+  zone.forEach(cell => {
+    console.log(`  Cell at (${cell.x}, ${cell.y}, ${cell.z})`);
+    console.log(`  Zone ID: ${cell.zone}`);
+  });
+});
+```
+
+### Performance
+
+- **Time Complexity**: O(n) where n is the number of cells
+- **Space Complexity**: O(n) for spatial index and zone tracking
+- Optimized using typed arrays (`Int32Array`, `Uint16Array`, `Uint32Array`)
+- Efficient for large maps (tested with 10,000+ cells)
+
+### Use Cases
+
+```javascript
+// Find largest zone
+const largestZone = zones.reduce((max, zone) => 
+  zone.length > max.length ? zone : max
+);
+
+// Count zones
+const zoneCount = zones.length;
+
+// Find zone for specific cell
+const cell = meshData.find(c => c.x === 5 && c.y === 5 && c.z === 5);
+console.log(`Cell is in zone ${cell.zone}`);
+```
+
+## isDoubleEggWeeknd
+
+Checks if the current time is during the double egg weekend event.
+
+### Signature
+
+```javascript
+isDoubleEggWeeknd(): boolean
+```
+
+### Returns
+
+`true` if current time is during double egg weekend, `false` otherwise.
+
+### Example
+
+```javascript
+import { isDoubleEggWeeknd } from 'yolkbot/util';
+
+if (isDoubleEggWeeknd()) {
+  console.log('Double egg rewards active!');
+  const reward = baseReward * 2;
+} else {
+  console.log('Normal rewards');
+}
+```
+
+### Event Schedule
+
+Double egg weekend runs:
+- **Friday**: 8:00 PM UTC onwards
+- **Saturday**: All day (00:00 - 23:59 UTC)
+- **Sunday**: All day (00:00 - 23:59 UTC)
+- **Monday**: Ends at 12:00 AM UTC
+
+### Implementation
+
+```javascript
+// Pseudocode
+const day = getCurrentUTCDay(); // 0 = Sunday, 5 = Friday, 6 = Saturday
+const hour = getCurrentUTCHour();
+
+if (day === 5 && hour >= 20) return true; // Friday 8pm+
+if (day === 6 || day === 0) return true;  // Saturday or Sunday
+return false;
+```
+
+### Usage Patterns
+
+```javascript
+// Dynamic reward calculation
+function calculateReward(baseAmount) {
+  const multiplier = isDoubleEggWeeknd() ? 2 : 1;
+  return baseAmount * multiplier;
+}
+
+// Event notification
+function checkEventStatus() {
+  const wasEvent = localStorage.getItem('wasDoubleEgg') === 'true';
+  const isEvent = isDoubleEggWeeknd();
+  
+  if (isEvent && !wasEvent) {
+    notify('Double egg weekend started!');
+  } else if (!isEvent && wasEvent) {
+    notify('Double egg weekend ended');
+  }
+  
+  localStorage.setItem('wasDoubleEgg', String(isEvent));
+}
+```
+
+## Module Exports
+
+```javascript
+export {
+  createGun,
+  createError,
+  fetchMap,
+  initKotcZones,
+  isDoubleEggWeeknd
+};
+```
+
+## Complete Example
+
+```javascript
+import {
+  createError,
+  createGun,
+  fetchMap,
+  initKotcZones,
+  isDoubleEggWeeknd
+} from 'yolkbot/util';
+
+async function initializeGame() {
+  // Load map
+  const map = await fetchMap('castle', 'v1.2.3');
+  
+  // Initialize zones
+  const zones = initKotcZones(map.meshData);
+  console.log(`Map has ${zones.length} zones`);
+  
+  // Setup player gun
+  const gun = createGun({
+    name: 'Rifle',
+    ammo: { capacity: 30, store: 120 }
+  });
+  
+  // Check event status
+  const rewardMultiplier = isDoubleEggWeeknd() ? 2 : 1;
+  console.log(`Reward multiplier: ${rewardMultiplier}x`);
+  
+  return { map, zones, gun, rewardMultiplier };
+}
+
+// Error handling pattern
+function validateGameState(state) {
+  if (!state.map) {
+    return createError('MAP_NOT_LOADED');
+  }
+  if (state.zones.length === 0) {
+    return createError('NO_ZONES_FOUND');
+  }
+  return { ok: true, data: state };
+}
+```

@@ -1,0 +1,245 @@
+---
+title: WASM Module
+description: WASM utilities for coordinate transformation and validation
+---
+
+The WASM module provides high-performance utilities for coordinate transformation and cryptographic validation operations. It includes both a direct JavaScript implementation and a legacy WebAssembly wrapper.
+
+## Overview
+
+The WASM module exports three main functions from `src/wasm/direct.js`:
+- `coords()` - Transforms yaw/pitch angles to encoded coordinates
+- `validate()` - Generates HMAC-SHA256 signatures for input validation
+- `processJS()` - Decodes XOR-encoded strings
+
+For advanced use cases, the legacy WASM class provides WebAssembly-based implementations.
+
+## coords
+
+Transforms yaw and pitch angles into an 8-character base64-encoded coordinate string.
+
+### Signature
+
+```javascript
+coords(yaw11: number, pitch10: number): string
+```
+
+### Parameters
+
+- `yaw11` (number) - Yaw angle in radians
+- `pitch10` (number) - Pitch angle in radians
+
+### Returns
+
+An 8-character string representing the encoded coordinates.
+
+### Example
+
+```javascript
+import { coords } from 'yolkbot/wasm';
+
+const yaw = Math.PI / 2;   // 90 degrees
+const pitch = Math.PI / 4; // 45 degrees
+
+const encoded = coords(yaw, pitch);
+console.log(encoded); // Returns 8-character coordinate string
+```
+
+### Implementation Notes
+
+- Yaw is normalized to range [0, 65535]
+- Pitch is normalized to range [0, 32767]
+- Uses bitwise operations for efficient encoding
+- Output is base64-encoded using custom table
+
+## validate
+
+Generates an HMAC-SHA256 signature for input validation.
+
+### Signature
+
+```javascript
+validate(input: string): Promise<string>
+```
+
+### Parameters
+
+- `input` (string) - The string to validate
+
+### Returns
+
+A Promise that resolves to a hexadecimal HMAC-SHA256 hash string.
+
+### Example
+
+```javascript
+import { validate } from 'yolkbot/wasm';
+
+const hash = await validate('my-input-string');
+console.log(hash); // Hexadecimal hash string
+```
+
+### Environment Support
+
+- **Node.js**: Uses `node:crypto` builtin module for optimal performance
+- **Browser**: Uses Web Crypto API (`crypto.subtle`)
+
+### Implementation Details
+
+- Uses a fixed salt for HMAC key derivation
+- Returns lowercase hexadecimal representation
+- Async in browsers, synchronous internally in Node.js
+
+## processJS
+
+Decodes XOR-encoded strings using a position-based XOR cipher.
+
+### Signature
+
+```javascript
+processJS(input: string): string
+```
+
+### Parameters
+
+- `input` (string) - XOR-encoded string to decode
+
+### Returns
+
+The decoded string.
+
+### Example
+
+```javascript
+import { processJS } from 'yolkbot/wasm';
+
+const encoded = '\x58\x59\x5a'; // Example encoded data
+const decoded = processJS(encoded);
+console.log(decoded);
+```
+
+### Implementation Notes
+
+- XOR key starts at 88 and increments with position
+- Key is masked to 7-bit values (`& 0x7F`)
+- Handles large strings efficiently using chunked processing
+- Maximum chunk size: 65,536 characters
+
+## Legacy WASM Class
+
+For advanced use cases requiring WebAssembly execution, the legacy `WASM` class provides a full implementation.
+
+### Signature
+
+```javascript
+import { WASM } from 'yolkbot/wasm/legacy';
+
+const wasm = new WASM();
+await wasm.initWasm();
+```
+
+### Methods
+
+#### initWasm()
+
+Initializes the WebAssembly module.
+
+```javascript
+await wasm.initWasm();
+```
+
+#### coords(targetYaw, targetPitch)
+
+Calculates coordinate string using WASM implementation.
+
+```javascript
+const coords = wasm.coords(Math.PI / 2, Math.PI / 4);
+```
+
+#### validate(input)
+
+Validates input using WASM implementation.
+
+```javascript
+const hash = wasm.validate('my-input');
+```
+
+#### process(str, date)
+
+Processes input string with optional date parameter.
+
+```javascript
+const result = await wasm.process('input-string', Date.now());
+```
+
+### Example Usage
+
+```javascript
+import { WASM } from 'yolkbot/wasm/legacy';
+
+const wasm = new WASM();
+await wasm.initWasm();
+
+const coords = wasm.coords(1.5708, 0.7854);
+const validated = wasm.validate('test-input');
+
+console.log('Coordinates:', coords);
+console.log('Validation:', validated);
+```
+
+## Performance Considerations
+
+### Direct Implementation (Recommended)
+
+- **Pros**: No WebAssembly overhead, faster initialization, smaller bundle size
+- **Cons**: Pure JavaScript may be slightly slower for intensive operations
+- **Use when**: Building lightweight bots or when startup time matters
+
+### Legacy WASM Implementation
+
+- **Pros**: Native performance for compute-intensive operations
+- **Cons**: Larger bundle size (~50KB), async initialization required
+- **Use when**: Processing thousands of coordinate transformations
+
+### Benchmarks
+
+```javascript
+// Direct implementation
+import { coords } from 'yolkbot/wasm';
+const start = performance.now();
+for (let i = 0; i < 10000; i++) {
+  coords(Math.random() * Math.PI * 2, Math.random() * Math.PI);
+}
+console.log(`Direct: ${performance.now() - start}ms`);
+
+// WASM implementation
+import { WASM } from 'yolkbot/wasm/legacy';
+const wasm = new WASM();
+await wasm.initWasm();
+const start2 = performance.now();
+for (let i = 0; i < 10000; i++) {
+  wasm.coords(Math.random() * Math.PI * 2, Math.random() * Math.PI);
+}
+console.log(`WASM: ${performance.now() - start2}ms`);
+```
+
+## Module Exports
+
+### `src/wasm/direct.js`
+
+```javascript
+export { coords, validate, processJS };
+```
+
+### `src/wasm/legacy.js`
+
+```javascript
+export { WASM };
+export default WASM;
+```
+
+### `src/wasm/bytes.js`
+
+```javascript
+export { wasmBytes }; // Base64-encoded WASM binary
+```
