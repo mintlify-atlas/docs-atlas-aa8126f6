@@ -81,7 +81,8 @@
             "group": "Utilities",
             "pages": [
               "api-reference/wasm",
-              "api-reference/util"
+              "api-reference/util",
+              "api-reference/comm"
             ]
           }
         ]

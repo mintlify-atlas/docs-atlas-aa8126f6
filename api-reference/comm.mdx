@@ -1,0 +1,435 @@
+---
+title: Comm
+description: Binary packet serialization and deserialization utilities
+---
+
+The `Comm` module provides low-level binary packet encoding and decoding utilities used internally by yolkbot for WebSocket communication with Shell Shockers servers.
+
+## Overview
+
+The Comm module consists of two classes:
+- **CommIn** - Deserializes incoming binary packets from the server
+- **CommOut** - Serializes outgoing binary packets to send to the server
+
+These utilities handle the Shell Shockers binary protocol, which uses little-endian byte order and custom encoding for various data types.
+
+<Note>
+Most users won't need to use these classes directly. The Bot class handles all packet serialization/deserialization automatically. This is primarily useful for advanced users implementing custom packet handlers or debugging the protocol.
+</Note>
+
+## Import
+
+```javascript
+import { Comm } from 'yolkbot';
+
+const { CommIn, CommOut } = Comm;
+```
+
+Or import individually:
+
+```javascript
+import { CommIn } from 'yolkbot/comm/CommIn';
+import { CommOut } from 'yolkbot/comm/CommOut';
+```
+
+## CommOut
+
+The `CommOut` class serializes JavaScript values into binary format for sending to the server.
+
+### Constructor
+
+```javascript
+new CommOut(size?: number)
+```
+
+<ParamField path="size" type="number" default={16384}>
+  Buffer size in bytes
+</ParamField>
+
+### Methods
+
+#### send()
+
+Sends the packet via WebSocket.
+
+```javascript
+commOut.send(websocket)
+```
+
+<ParamField path="websocket" type="WebSocket" required>
+  The WebSocket instance to send through
+</ParamField>
+
+#### packInt8()
+
+Packs a signed 8-bit integer.
+
+```javascript
+commOut.packInt8(value)
+```
+
+<ParamField path="value" type="number" required>
+  Integer value (-128 to 127)
+</ParamField>
+
+#### packInt16()
+
+Packs a signed 16-bit integer (little-endian).
+
+```javascript
+commOut.packInt16(value)
+```
+
+<ParamField path="value" type="number" required>
+  Integer value (-32768 to 32767)
+</ParamField>
+
+#### packInt24()
+
+Packs a signed 24-bit integer (little-endian).
+
+```javascript
+commOut.packInt24(value)
+```
+
+<ParamField path="value" type="number" required>
+  Integer value (-8388608 to 8388607)
+</ParamField>
+
+#### packInt32()
+
+Packs a signed 32-bit integer (little-endian).
+
+```javascript
+commOut.packInt32(value)
+```
+
+<ParamField path="value" type="number" required>
+  Integer value (-2147483648 to 2147483647)
+</ParamField>
+
+#### packRadU()
+
+Packs an unsigned radian value (0 to 2π).
+
+```javascript
+commOut.packRadU(value)
+```
+
+<ParamField path="value" type="number" required>
+  Radian value (0 to 2π)
+</ParamField>
+
+#### packRad()
+
+Packs a signed radian value (-π to π).
+
+```javascript
+commOut.packRad(value)
+```
+
+<ParamField path="value" type="number" required>
+  Radian value (-π to π)
+</ParamField>
+
+#### packFloat()
+
+Packs a float value with 1/256 precision.
+
+```javascript
+commOut.packFloat(value)
+```
+
+<ParamField path="value" type="number" required>
+  Floating point value
+</ParamField>
+
+#### packDouble()
+
+Packs a double value with 1/1048576 precision.
+
+```javascript
+commOut.packDouble(value)
+```
+
+<ParamField path="value" type="number" required>
+  Floating point value
+</ParamField>
+
+#### packString()
+
+Packs a string (max 255 characters).
+
+```javascript
+commOut.packString(str)
+```
+
+<ParamField path="str" type="string" required>
+  String to pack (truncated to 255 chars if longer)
+</ParamField>
+
+#### packLongString()
+
+Packs a long string (max 65535 characters).
+
+```javascript
+commOut.packLongString(str)
+```
+
+<ParamField path="str" type="string" required>
+  String to pack
+</ParamField>
+
+### Example
+
+```javascript
+import { CommOut } from 'yolkbot/comm/CommOut';
+
+const packet = new CommOut();
+
+// Pack various data types
+packet.packInt8(42);
+packet.packString("Hello");
+packet.packFloat(3.14);
+
+// Send via WebSocket
+packet.send(websocket);
+```
+
+## CommIn
+
+The `CommIn` class deserializes binary packets received from the server into JavaScript values.
+
+<Warning>
+CommIn uses static methods and maintains internal state. It's not thread-safe and should only be used to process one packet at a time.
+</Warning>
+
+### Static Methods
+
+#### init()
+
+Initializes the buffer for reading.
+
+```javascript
+CommIn.init(arrayBuffer)
+```
+
+<ParamField path="arrayBuffer" type="ArrayBuffer" required>
+  The binary data to deserialize
+</ParamField>
+
+#### isMoreDataAvailable()
+
+Returns the number of bytes remaining in the buffer.
+
+```javascript
+const remaining = CommIn.isMoreDataAvailable()
+```
+
+Returns `number` - Bytes remaining
+
+#### unPackInt8U()
+
+Unpacks an unsigned 8-bit integer.
+
+```javascript
+const value = CommIn.unPackInt8U()
+```
+
+Returns `number` (0 to 255)
+
+#### unPackInt8()
+
+Unpacks a signed 8-bit integer.
+
+```javascript
+const value = CommIn.unPackInt8()
+```
+
+Returns `number` (-128 to 127)
+
+#### unPackInt16U()
+
+Unpacks an unsigned 16-bit integer (little-endian).
+
+```javascript
+const value = CommIn.unPackInt16U()
+```
+
+Returns `number` (0 to 65535)
+
+#### unPackInt16()
+
+Unpacks a signed 16-bit integer (little-endian).
+
+```javascript
+const value = CommIn.unPackInt16()
+```
+
+Returns `number` (-32768 to 32767)
+
+#### unPackInt24U()
+
+Unpacks an unsigned 24-bit integer (little-endian).
+
+```javascript
+const value = CommIn.unPackInt24U()
+```
+
+Returns `number` (0 to 16777215)
+
+#### unPackInt32U()
+
+Unpacks an unsigned 32-bit integer (little-endian).
+
+```javascript
+const value = CommIn.unPackInt32U()
+```
+
+Returns `number` (0 to 4294967295)
+
+#### unPackInt32()
+
+Unpacks a signed 32-bit integer (little-endian).
+
+```javascript
+const value = CommIn.unPackInt32()
+```
+
+Returns `number` (-2147483648 to 2147483647)
+
+#### unPackRadU()
+
+Unpacks an unsigned radian value.
+
+```javascript
+const radians = CommIn.unPackRadU()
+```
+
+Returns `number` (0 to 2π)
+
+#### unPackRad()
+
+Unpacks a signed radian value.
+
+```javascript
+const radians = CommIn.unPackRad()
+```
+
+Returns `number` (-π to π)
+
+#### unPackFloat()
+
+Unpacks a float value.
+
+```javascript
+const value = CommIn.unPackFloat()
+```
+
+Returns `number`
+
+#### unPackDouble()
+
+Unpacks a double value.
+
+```javascript
+const value = CommIn.unPackDouble()
+```
+
+Returns `number`
+
+#### unPackString()
+
+Unpacks a string (max 255 characters).
+
+```javascript
+const str = CommIn.unPackString(maxLen?)
+```
+
+<ParamField path="maxLen" type="number" default={255}>
+  Maximum string length to read
+</ParamField>
+
+Returns `string`
+
+#### unPackLongString()
+
+Unpacks a long string (max 16383 characters).
+
+```javascript
+const str = CommIn.unPackLongString(maxLen?)
+```
+
+<ParamField path="maxLen" type="number" default={16383}>
+  Maximum string length to read
+</ParamField>
+
+Returns `string`
+
+### Example
+
+```javascript
+import { CommIn } from 'yolkbot/comm/CommIn';
+
+// Initialize with binary data
+CommIn.init(arrayBuffer);
+
+// Unpack values in order
+const packetId = CommIn.unPackInt8U();
+const playerName = CommIn.unPackString();
+const health = CommIn.unPackFloat();
+
+// Check if more data is available
+if (CommIn.isMoreDataAvailable()) {
+  const extra = CommIn.unPackInt16();
+}
+```
+
+## Use Cases
+
+### Custom Packet Handler
+
+```javascript
+import { Bot, CommIn } from 'yolkbot';
+
+const bot = new Bot({ intents: ['GAME'] });
+
+// Listen to raw packets
+bot.socket.onmessage = (event) => {
+  CommIn.init(event.data);
+  
+  const packetType = CommIn.unPackInt8U();
+  
+  if (packetType === 42) { // Custom packet type
+    const customData = CommIn.unPackString();
+    console.log('Custom packet:', customData);
+  }
+};
+```
+
+### Protocol Debugging
+
+```javascript
+import { CommIn } from 'yolkbot/comm/CommIn';
+
+// Intercept and log packet contents
+const originalOnMessage = bot.socket.onmessage;
+
+bot.socket.onmessage = (event) => {
+  CommIn.init(event.data);
+  
+  console.log('Packet size:', event.data.byteLength);
+  console.log('First byte:', CommIn.unPackInt8U());
+  console.log('Remaining:', CommIn.isMoreDataAvailable());
+  
+  // Reset and process normally
+  CommIn.init(event.data);
+  originalOnMessage(event);
+};
+```
+
+## Related
+
+- [Bot API](/api-reference/bot) - Main bot class
+- [Socket](/api-reference/socket) - WebSocket wrapper
+- [WASM](/api-reference/wasm) - Binary utilities
