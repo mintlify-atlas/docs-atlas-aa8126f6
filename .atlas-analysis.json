@@ -1,0 +1,111 @@
+{
+  "projectType": "sdk-library",
+  "projectName": "yolkbot",
+  "projectDescription": "A fast, reliable, multipurpose bot library for Shell Shockers game automation",
+  "theme": "aspen",
+  "primaryColor": "#F4D03F",
+  "lightColor": "#FCF3CF",
+  "darkColor": "#D68910",
+  "navigation": {
+    "tabs": [
+      {
+        "tab": "Documentation",
+        "groups": [
+          {
+            "group": "Get Started",
+            "pages": [
+              "introduction",
+              "installation",
+              "quickstart"
+            ]
+          },
+          {
+            "group": "Core Concepts",
+            "pages": [
+              "concepts/bot-basics",
+              "concepts/connection-management",
+              "concepts/event-handling"
+            ]
+          },
+          {
+            "group": "Guides",
+            "pages": [
+              "guides/examples",
+              "guides/browser-usage",
+              "guides/advanced-usage"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "API Reference",
+        "groups": [
+          {
+            "group": "Core Classes",
+            "pages": [
+              "api-reference/bot",
+              "api-reference/api",
+              "api-reference/socket"
+            ]
+          },
+          {
+            "group": "Game Actions",
+            "pages": [
+              "api-reference/dispatches/overview",
+              "api-reference/dispatches/movement",
+              "api-reference/dispatches/combat",
+              "api-reference/dispatches/interaction"
+            ]
+          },
+          {
+            "group": "Data & Types",
+            "pages": [
+              "api-reference/constants",
+              "api-reference/enums",
+              "api-reference/game-player"
+            ]
+          },
+          {
+            "group": "Utilities",
+            "pages": [
+              "api-reference/wasm",
+              "api-reference/util"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "Resources",
+        "groups": [
+          {
+            "group": "Community",
+            "pages": [
+              "resources/contributing",
+              "resources/changelog"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "keyFeatures": [
+    "Bot creation and game connection",
+    "Real-time game actions (move, fire, chat, etc.)",
+    "WebSocket communication with Shell Shockers servers",
+    "Browser and Node.js support",
+    "WASM-powered pathfinding and utilities",
+    "Comprehensive constants and enums for game data"
+  ],
+  "publicApiSurface": [
+    "Bot",
+    "API",
+    "yolkws",
+    "GamePlayer",
+    "Dispatches (BanPlayer, BootPlayer, Chat, Fire, GameOptions, GoToAmmo, GoToCoop, GoToGrenade, GoToPlayer, GoToSpatula, LookAt, LookAtPos, Melee, Movement, Pause, Reload, ReportPlayer, ResetGame, SaveLoadout, Spawn, SwapWeapon, SwitchTeam, ThrowGrenade)",
+    "Constants (Challenges, CloseCode, CommCode, Guns, Items, Maps, Regions)",
+    "Enums (APIError, LoginError, BuyItemError, ChicknWinnerError, ClaimSocialError, ClaimURLError, GameFindError, GameJoinError, Intents, MatchmakerError, RedeemCodeError)",
+    "Comm (CommIn, CommOut)",
+    "WASM utilities",
+    "util functions"
+  ]
+}
